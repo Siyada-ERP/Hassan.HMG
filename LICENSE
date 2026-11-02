@@ -1,0 +1,13 @@
+Copyright (c) 2026 SIYADA. All rights reserved.
+
+This software and its source code are proprietary. No part of it may be
+copied, modified, distributed, sublicensed or used, in whole or in part,
+except with the prior written permission of the copyright holder.
+
+Hosting this repository on GitHub (including a public repository) does not
+grant any licence beyond the rights GitHub's Terms of Service give to users
+to view and fork public repositories.
+
+If you intend to open-source the project, replace this file with the licence
+of your choice (for example MIT or Apache-2.0) and update the "license" field
+in package.json and server/package.json.

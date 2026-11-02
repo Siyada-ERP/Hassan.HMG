@@ -1,0 +1,21 @@
+{
+  "name": "siyada",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SIYADA — double-entry accounting for trading companies. One offline HTML file, plus an optional multi-company, multi-user Node server.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "start": "npm run build && node server/server.js",
+    "test": "npm run build && npm run test:engine && npm run test:server",
+    "test:engine": "node tests/engine/engine.test.js tests/fixtures/clean && node tests/engine/engine.test.js tests/fixtures/manual",
+    "test:server": "npm --prefix server test",
+    "test:e2e": "python3 tests/e2e/run_all.py",
+    "test:all": "npm test && npm run test:e2e",
+    "pack": "npm run build && python3 scripts/pack.py",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('server/public',{recursive:true,force:true})\""
+  }
+}

@@ -1,0 +1,52 @@
+name: Release
+
+# Push a tag such as v1.1.0 and this workflow tests the code, builds the two
+# deliverables and publishes them on the GitHub Releases page:
+#   - SIYADA.html          the single-file offline app
+#   - SIYADA_Server.zip    server + offline file + docs, ready to deploy
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: The tag must match package.json
+        run: |
+          v="$(node -p "require('./package.json').version")"
+          test "v$v" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != package.json version v$v"; exit 1; }
+
+      - name: Test
+        run: npm test
+
+      - name: Build the release bundle
+        run: npm run pack
+
+      - name: Extract this version's notes from CHANGELOG.md
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v v="$v" '
+            $0 ~ "^## \\[" v "\\]" { on=1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || echo "See CHANGELOG.md" > release-notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/SIYADA.html dist/SIYADA_Server.zip \
+            --title "SIYADA ${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md

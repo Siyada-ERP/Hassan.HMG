@@ -1,0 +1,5 @@
+# HTTPS تلقائي (Let's Encrypt) للدومين المكتوب في DOMAIN
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy siyada:3000
+}

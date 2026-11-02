@@ -1,0 +1,14 @@
+# Normalise line endings: LF in the repo, so diffs and the build output are identical on every OS.
+* text=auto eol=lf
+
+# Windows launchers must keep CRLF.
+*.bat text eol=crlf
+
+# Fixtures keep their exact bytes (UTF-8 with BOM, as exported by the Excel ERP).
+tests/fixtures/** -text
+
+# Binary
+*.png binary
+*.jpg binary
+*.pdf binary
+*.zip binary

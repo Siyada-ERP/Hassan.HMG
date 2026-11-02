@@ -1,0 +1,33 @@
+﻿kind,key,key2,account_code
+type,مبيعات,بيع,4101
+type,مبيعات,تحصيل,AUTO
+type,مبيعات,مرتجع,4102
+type,مبيعات,خصم,4103
+type,مبيعات,عجز,4203
+type,مبيعات,سداد,AUTO
+type,مبيعات,سلفة,9999
+type,مبيعات,شراء,1301
+type,مشتريات,شراء,1301
+type,مشتريات,سداد,AUTO
+type,مشتريات,مرتجع شراء,1301
+type,مشتريات,خصم,4202
+payment_method,فودافون,,1102
+payment_method,ستا,,1103
+payment_method,شيك,,1105
+payment_method,بنك,,1104
+payment_method,تحويل,,1104
+payment_method,كاش,,1101
+payment_method,نقد,,1101
+expense_category,مرتبات موظفين,,5201
+expense_category,كهرباء-مية-غاز,,5202
+expense_category,صيانة عربية,,5203
+expense_category,صيانة مكينة,,5204
+expense_category,اجار,,5205
+expense_category,أصول أخرى,,1501
+expense_category,سلفة موظفين,,1202
+expense_category,وقود سيارات,,5206
+expense_category,رسوم تحويل,,5209
+expense_category,فروق خزينة,,5208
+income_category,مخزن الشكاير,,4201
+income_category,الفرع الثاني,,4201
+income_category,تصنيف 1,,4201

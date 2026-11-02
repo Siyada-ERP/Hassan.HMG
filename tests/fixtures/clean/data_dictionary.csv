@@ -1,0 +1,92 @@
+﻿sheet,table,column_ar,column,type,description
+DB_الأطراف,parties,كود الطرف,party_code,TEXT PRIMARY KEY,ملاحظة
+DB_الأطراف,parties,اسم الطرف,party_name,TEXT NOT NULL,ملاحظة
+DB_الأطراف,parties,النوع,party_type,TEXT NOT NULL,ملاحظة
+DB_الأطراف,parties,الهاتف,phone,TEXT,ملاحظة
+DB_الأطراف,parties,العنوان,address,TEXT,ملاحظة
+DB_الأطراف,parties,رصيد افتتاحي,opening_balance,NUMERIC,ملاحظة
+DB_الأطراف,parties,إجمالي مدين,total_debit,NUMERIC,ملاحظة
+DB_الأطراف,parties,إجمالي دائن,total_credit,NUMERIC,ملاحظة
+DB_الأطراف,parties,الرصيد الحالي,balance,NUMERIC,ملاحظة - ملاحظة - ملاحظة
+DB_الأطراف,parties,حد الائتمان,credit_limit,NUMERIC,ملاحظة
+DB_الأطراف,parties,آخر حركة,last_move,DATE,ملاحظة
+DB_الأطراف,parties,قائمة الأسعار,price_list,TEXT,ملاحظة
+DB_الأطراف,parties,عدد الحركات,move_count,INTEGER,ملاحظة
+DB_الأصناف,items,كود الصنف,item_code,TEXT PRIMARY KEY,ملاحظة
+DB_الأصناف,items,اسم الصنف,item_name,TEXT NOT NULL,ملاحظة
+DB_الأصناف,items,الوحدة,unit,TEXT,ملاحظة
+DB_الأصناف,items,وزن الوحدة,unit_weight,NUMERIC,ملاحظة
+DB_الأصناف,items,كمية افتتاحية,opening_qty,NUMERIC,ملاحظة
+DB_الأصناف,items,تكلفة افتتاحية,opening_cost,NUMERIC,ملاحظة
+DB_الأصناف,items,نسبة الضريبة,vat_rate,NUMERIC,ملاحظة
+DB_الأصناف,items,كود ETA,eta_code,TEXT,ملاحظة
+DB_الأصناف,items,نوع الكود,eta_type,TEXT,ملاحظة
+DB_الأصناف,items,مشتريات (كمية),qty_purchased,NUMERIC,ملاحظة
+DB_الأصناف,items,مبيعات (كمية),qty_sold,NUMERIC,ملاحظة
+DB_الأصناف,items,الكمية الحالية,qty_on_hand,NUMERIC,ملاحظة
+DB_الأصناف,items,متوسط التكلفة,avg_cost,NUMERIC,ملاحظة
+DB_الأصناف,items,قيمة المخزون,stock_value,NUMERIC,ملاحظة
+DB_الأصناف,items,حد إعادة الطلب,reorder_level,NUMERIC,ملاحظة
+DB_الأصناف,items,آخر سعر شراء,last_purchase_price,NUMERIC,ملاحظة
+DB_الأصناف,items,آخر سعر بيع,last_sale_price,NUMERIC,ملاحظة
+DB_الأصناف,items,تكلفة المبيعات,cogs_total,NUMERIC,ملاحظة
+DB_الأصناف,items,قيمة المبيعات,sales_total,NUMERIC,ملاحظة
+DB_الحركات,transactions,م,id,INTEGER PRIMARY KEY,ملاحظة
+DB_الحركات,transactions,التاريخ,tx_date,DATE NOT NULL,ملاحظة
+DB_الحركات,transactions,المصدر,source,TEXT,ملاحظة
+DB_الحركات,transactions,صف المصدر,source_row,INTEGER,ملاحظة
+DB_الحركات,transactions,رقم المستند,doc_no,TEXT,ملاحظة
+DB_الحركات,transactions,نوع الحركة,tx_type,TEXT NOT NULL,ملاحظة
+DB_الحركات,transactions,نوع الطرف,party_type,TEXT,ملاحظة
+DB_الحركات,transactions,كود الطرف,party_code,TEXT,ملاحظة
+DB_الحركات,transactions,اسم الطرف,party_name,TEXT,ملاحظة
+DB_الحركات,transactions,كود الصنف,item_code,TEXT,
+DB_الحركات,transactions,اسم الصنف,item_name,TEXT,
+DB_الحركات,transactions,الكمية,qty,NUMERIC,ملاحظة
+DB_الحركات,transactions,العدد,pieces,NUMERIC,ملاحظة
+DB_الحركات,transactions,السعر,price,NUMERIC,ملاحظة
+DB_الحركات,transactions,المبلغ,amount,NUMERIC,ملاحظة
+DB_الحركات,transactions,مدين,debit,NUMERIC,ملاحظة
+DB_الحركات,transactions,دائن,credit,NUMERIC,ملاحظة
+DB_الحركات,transactions,طريقة الدفع,pay_method,TEXT,ملاحظة
+DB_الحركات,transactions,البيان,description,TEXT,
+DB_الحركات,transactions,الصافي,net_amount,NUMERIC,ملاحظة
+DB_الحركات,transactions,الضريبة,vat_amount,NUMERIC,ملاحظة
+DB_الحركات,transactions,التكلفة,cost_amount,NUMERIC,ملاحظة
+DB_الحركات,transactions,رقم القيد,journal_no,INTEGER,ملاحظة
+DB_الحركات,transactions,ملاحظة,flag,TEXT,ملاحظة
+DB_المستندات,documents,رقم المستند,doc_no,TEXT PRIMARY KEY,
+DB_المستندات,documents,التاريخ,doc_date,DATE,
+DB_المستندات,documents,نوع المستند,doc_type,TEXT,ملاحظة
+DB_المستندات,documents,كود الطرف,party_code,TEXT,
+DB_المستندات,documents,اسم الطرف,party_name,TEXT,
+DB_المستندات,documents,عدد البنود,line_count,INTEGER,
+DB_المستندات,documents,الإجمالي,gross_total,NUMERIC,ملاحظة
+DB_المستندات,documents,الخصم,discount,NUMERIC,
+DB_المستندات,documents,الصافي,net_total,NUMERIC,ملاحظة
+DB_المستندات,documents,المدفوع,paid,NUMERIC,ملاحظة
+DB_المستندات,documents,الضريبة,vat_amount,NUMERIC,
+DB_المستندات,documents,التكلفة,cost_amount,NUMERIC,
+DB_المستندات,documents,طريقة الدفع,pay_method,TEXT,
+DB_المستندات,documents,رقم القيد,journal_no,INTEGER,ملاحظة
+DB_المستندات,documents,المصدر,source,TEXT,
+DB_القيود,journal_lines,رقم القيد,entry_no,INTEGER NOT NULL,
+DB_القيود,journal_lines,سطر,line_no,INTEGER NOT NULL,
+DB_القيود,journal_lines,التاريخ,entry_date,DATE NOT NULL,
+DB_القيود,journal_lines,كود الحساب,account_code,TEXT NOT NULL,ملاحظة
+DB_القيود,journal_lines,اسم الحساب,account_name,TEXT,
+DB_القيود,journal_lines,مدين,debit,NUMERIC,
+DB_القيود,journal_lines,دائن,credit,NUMERIC,
+DB_القيود,journal_lines,البيان,description,TEXT,
+DB_القيود,journal_lines,المستند,doc_no,TEXT,
+DB_القيود,journal_lines,المصدر,source,TEXT,ملاحظة
+DB_القيود,journal_lines,مرجع,source_row,INTEGER,ملاحظة
+DB_القيود,journal_lines,كود الطرف,party_code,TEXT,ملاحظة
+DB_القيود,journal_lines,اسم الطرف,party_name,TEXT,
+DB_القيود,journal_lines,نوع القيد,entry_type,TEXT,ملاحظة
+شجرة الحسابات,accounts,كود الحساب,account_code,TEXT,ملاحظة
+شجرة الحسابات,accounts,اسم الحساب,account_name,TEXT,ملاحظة
+شجرة الحسابات,accounts,النوع,account_type,TEXT,ملاحظة
+شجرة الحسابات,accounts,المجموعة,account_group,TEXT,ملاحظة
+شجرة الحسابات,accounts,حساب مالي؟,is_financial,TEXT,ملاحظة
+شجرة الحسابات,accounts,ملاحظات,notes,TEXT,ملاحظة

@@ -1,0 +1,21 @@
+# systemd (بدون Docker). انسخه إلى /etc/systemd/system/siyada.service ثم:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now siyada
+# عدّل المسارات حسب مكان المجلد.
+[Unit]
+Description=SIYADA server
+After=network.target
+
+[Service]
+Type=simple
+User=siyada
+WorkingDirectory=/opt/siyada/server
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/siyada/server/data
+
+[Install]
+WantedBy=multi-user.target
