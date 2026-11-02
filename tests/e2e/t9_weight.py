@@ -2,6 +2,9 @@ import asyncio, os
 from playwright.async_api import async_playwright
 BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')); URL = 'file://' + BASE + '/dist/SIYADA.html'; SH = BASE + '/tests/e2e/shots'
 fails = []
+# A create form carries data-edit="" too, so a bare [data-edit] selector matches the form that is
+# still on screen before the edit screen has rendered. Wait for the form that is really wanted.
+EDIT_FORM = '#frm[data-edit]:not([data-edit=""])'; NEW_FORM = '#frm[data-edit=""]'
 def check(name, got, exp):
     ok = got == exp; print(('PASS ' if ok else 'FAIL ') + name + ' got=' + str(got) + ' exp=' + str(exp))
     if not ok: fails.append(name)
@@ -42,7 +45,7 @@ async def main():
         check('saved pieces 10 and 0', await page.evaluate("() => APP.S.transactions.filter(t => t.type === 'مبيعات').map(t => t.pieces).join(',')") , await page.evaluate("() => APP.S.transactions.filter(t => t.type === 'مبيعات').map(t => t.pieces).join(',')"))
         print('pieces:', await page.evaluate("() => APP.S.transactions.map(t => t.itemCode + ':' + t.pieces + '/' + t.qty).join(' | ')"))
         # edit keeps stored pieces on load
-        await page.click('text=تعديل'); await page.wait_for_selector('#frm[data-edit]')
+        await page.click('text=تعديل'); await page.wait_for_selector(EDIT_FORM)
         check('edit loads stored count (10)', await page.locator('#lnBody tr').nth(0).locator('.lc').input_value(), '10')
         await page.screenshot(path=SH + '/w_edit.png')
         print('errors:', errs or 'none'); print('FAILS:', fails or 'none'); await b.close()

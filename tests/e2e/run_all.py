@@ -15,6 +15,12 @@ Usage (from the repository root, after `npm run build`):
     python3 tests/e2e/run_all.py              # all suites
     python3 tests/e2e/run_all.py t7 t9        # only suites whose file name starts with these
     python3 tests/e2e/run_all.py -v           # also print every suite's full output
+    python3 tests/e2e/run_all.py --retry=1    # run a failing suite once more (CI uses this)
+
+--retry=N never hides a problem: a suite that fails and then passes is reported as
+FLAKY (with what failed the first time, plus a GitHub Actions warning), and a suite
+that still fails after N retries fails the run. The last lines of the output always
+repeat every failing check, so a CI log can be read from the bottom.
 
 Screenshots and PDFs land in tests/e2e/shots/ (git-ignored).
 """
@@ -51,8 +57,22 @@ def verdict(code, out):
     return problems
 
 
+def run_suite(path):
+    try:
+        p = subprocess.run([sys.executable, path], cwd=ROOT, capture_output=True, text=True, timeout=TIMEOUT)
+        code, out = p.returncode, p.stdout + p.stderr
+    except subprocess.TimeoutExpired as e:
+        code, out = 124, (e.stdout or '') if isinstance(e.stdout, str) else ''
+        out += '\nTIMEOUT after %ds' % TIMEOUT
+    return code, out
+
+
 def main(argv):
     verbose = '-v' in argv
+    retries = 0
+    for a in argv:
+        if a.startswith('--retry='):
+            retries = max(0, int(a.split('=', 1)[1]))
     names = [a for a in argv if not a.startswith('-')]
     dist = os.path.join(ROOT, 'dist', 'SIYADA.html')
     if not os.path.exists(dist) or not os.path.exists(os.path.join(ROOT, 'server', 'public', 'index.html')):
@@ -65,26 +85,43 @@ def main(argv):
     if not suites:
         sys.exit('no suites matched')
 
-    results = []
+    results = []  # (name, problems after the last attempt, seconds, problems of failed earlier attempts)
     for path in suites:
         name = os.path.basename(path)
         t0 = time.time()
-        try:
-            p = subprocess.run([sys.executable, path], cwd=ROOT, capture_output=True, text=True, timeout=TIMEOUT)
-            code, out = p.returncode, p.stdout + p.stderr
-        except subprocess.TimeoutExpired as e:
-            code, out = 124, (e.stdout or '') if isinstance(e.stdout, str) else ''
-            out += '\nTIMEOUT after %ds' % TIMEOUT
+        earlier = []
+        code, out = run_suite(path)
         problems = verdict(code, out)
-        results.append((name, problems, time.time() - t0))
-        print('%-5s %-16s %5.1fs' % ('PASS' if not problems else 'FAIL', name, time.time() - t0), flush=True)
+        for attempt in range(retries):
+            if not problems:
+                break
+            earlier.append(problems)
+            print('RETRY %-16s attempt %d failed: %s' % (name, attempt + 1, '; '.join(problems[:3])), flush=True)
+            code, out = run_suite(path)
+            problems = verdict(code, out)
+        results.append((name, problems, time.time() - t0, earlier))
+        tag = 'FAIL' if problems else ('FLAKY' if earlier else 'PASS')
+        print('%-5s %-16s %5.1fs' % (tag, name, time.time() - t0), flush=True)
         for pr in problems[:8]:
             print('        - ' + pr)
         if verbose or problems:
             print('\n'.join('        | ' + l for l in out.splitlines()[-25:]) if problems else out)
 
     bad = [r for r in results if r[1]]
+    flaky = [r for r in results if not r[1] and r[3]]
+    ci = os.environ.get('GITHUB_ACTIONS') == 'true'
     print('\n%d/%d suites passed' % (len(results) - len(bad), len(results)))
+    for name, _, _, earlier in flaky:
+        msg = '%s passed only on retry; first attempt: %s' % (name, '; '.join(earlier[0][:3]))
+        print(('::warning title=Flaky browser suite::' if ci else 'FLAKY: ') + msg)
+    if bad:
+        print('\nFAILED SUITES AND CHECKS:')
+        for name, problems, _, _ in bad:
+            print('  ' + name)
+            for pr in problems[:8]:
+                print('    - ' + pr)
+                if ci:
+                    print('::error title=%s::%s' % (name, pr.replace('%', '%25')))
     return 1 if bad else 0
 
 

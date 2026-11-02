@@ -2,6 +2,9 @@ import asyncio, glob, os, json
 from playwright.async_api import async_playwright
 BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')); URL = 'file://' + BASE + '/dist/SIYADA.html'; SH = BASE + '/tests/e2e/shots'
 fails = []
+# A create form carries data-edit="" too, so a bare [data-edit] selector matches the form that is
+# still on screen before the edit screen has rendered. Wait for the form that is really wanted.
+EDIT_FORM = '#frm[data-edit]:not([data-edit=""])'; NEW_FORM = '#frm[data-edit=""]'
 def check(name, got, exp, tol=0.005):
     ok = abs(got - exp) <= tol if isinstance(exp, (int, float)) and not isinstance(exp, bool) else got == exp
     print(('PASS ' if ok else 'FAIL ') + name + ' got=' + str(got) + ' exp=' + str(exp))
@@ -12,8 +15,18 @@ async def main():
         page.on('pageerror', lambda e: errs.append('PAGEERROR ' + str(e))); page.on('console', lambda m: errs.append('CONSOLE ' + m.text) if m.type == 'error' else None)
         await page.goto(URL); await page.wait_for_selector('#suCo'); await page.fill('#suCo', 'شركة الاختبار'); await page.fill('#suTax', '999-111-222'); await page.fill('#suDt', '2025-01-01')
         await page.click('text=ابدأ بدفاتر جديدة'); await page.wait_for_selector('#app')
-        go = lambda h: page.evaluate("h => { location.hash = h }", '#/' + h)
+        async def go(h):
+            # mark what is on screen, change the route, and wait until that content has really been replaced:
+            # many screens share selectors (#results table.grid), so waiting for a selector alone can see the previous page
+            changed = await page.evaluate("h => { const m = document.querySelector('#main'); if (location.hash === h) return false; if (m) Array.from(m.children).forEach(e => e.setAttribute('data-old', '1')); location.hash = h; return true; }", '#/' + h)
+            if changed: await page.wait_for_function("() => !document.querySelector('#main [data-old]')", timeout=10000)
         bal = lambda c: page.evaluate("c => APP.bal(c)", c)
+        async def saved():  # after saving, the app navigates back to the empty create form
+            try: await page.wait_for_selector(NEW_FORM, timeout=5000)
+            except Exception: pass
+        async def settle(acc, want):  # the ledger balance reaches `want` (check() below still reports a real mismatch)
+            try: await page.wait_for_function("([c, w]) => Math.abs(APP.bal(c) - w) < 0.005", arg=[acc, want], timeout=5000)
+            except Exception: pass
         # seed master data
         await page.evaluate("""() => { const S = APP.S;
           S.parties.push({code:'C-01',name:'أحمد العميل',type:'عميل',phone:'',address:'',opening:0,limit:0,priceList:''},{code:'C-02',name:'محمود العميل',type:'عميل',phone:'',address:'',opening:0,limit:0,priceList:''},{code:'R-01',name:'شركة المورد',type:'مورد',phone:'',address:'',opening:0,limit:0,priceList:''});
@@ -65,7 +78,7 @@ async def main():
         await page.fill('[data-f="q"]', '')
         # edit wrong invoice from the reference
         await page.wait_for_timeout(300)
-        await page.locator('#results tr.rf').nth(0).locator('[data-act="docEdit"]').click(); await page.wait_for_selector('#frm[data-edit]')
+        await page.locator('#results tr.rf').nth(0).locator('[data-act="docEdit"]').click(); await page.wait_for_selector(EDIT_FORM)
         check('edit loads pieces', await page.evaluate("() => Array.from(document.querySelectorAll('#lnBody .lc')).map(e => e.value).join(',')"), '1' if False else await page.evaluate("() => Array.from(document.querySelectorAll('#lnBody .lc')).map(e => e.value).join(',')"))
         print('edit form pieces:', await page.evaluate("() => Array.from(document.querySelectorAll('#lnBody .lc')).map(e => e.value).join(',')"))
         # --- net quantity
@@ -102,11 +115,12 @@ async def main():
         await page.wait_for_selector('#frm')
         check('advance recorded', await page.evaluate("() => APP.S.manual.filter(m => m.kind==='adv').length"), 1)
         check('1202 balance 800', await bal('1202'), 800)
-        # advance edit then delete
-        await page.locator('table.grid a:has-text("تعديل")').first.click(); await page.wait_for_selector('#frm[data-edit]'); await page.fill('#fAmt', '900'); await page.click('[data-act="saveAdv"]'); await page.wait_for_timeout(300)
+        # advance edit (every step is anchored on the form that is really on screen)
+        await page.locator('table.grid a:has-text("تعديل")').first.click(); await page.wait_for_selector(EDIT_FORM)
+        await page.fill('#fAmt', '900'); await page.click('[data-act="saveAdv"]'); await saved(); await settle('1202', 900)
         check('1202 balance after edit 900', await bal('1202'), 900)
-        await page.fill('#fAmt', '') ; 
-        await page.locator('table.grid a:has-text("تعديل")').first.click(); await page.wait_for_selector('#frm[data-edit]'); await page.fill('#fAmt', '800'); await page.click('[data-act="saveAdv"]'); await page.wait_for_timeout(300)
+        await page.locator('table.grid a:has-text("تعديل")').first.click(); await page.wait_for_selector(EDIT_FORM)
+        await page.fill('#fAmt', '800'); await page.click('[data-act="saveAdv"]'); await saved(); await settle('1202', 800)
         check('1202 balance back 800', await bal('1202'), 800)
         # payroll
         await go('payroll'); await page.wait_for_selector('#pBody tr.pr')

@@ -1,14 +1,24 @@
 version: 2
 updates:
+  # One pull request per ecosystem and month instead of one per package.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: /server
     schedule:
       interval: monthly
+    open-pull-requests-limit: 2
   - package-ecosystem: pip
     directory: /tests/e2e
     schedule:
       interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      python:
+        patterns: ["*"]

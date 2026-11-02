@@ -70,7 +70,8 @@ jobs:
         run: npm run build
 
       - name: Run browser suites
-        run: python tests/e2e/run_all.py
+        # one retry per failing suite; a suite that only passes on retry is reported as a warning
+        run: python tests/e2e/run_all.py --retry=1
 
       - name: Keep screenshots when something failed
         if: failure()
