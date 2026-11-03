@@ -21,6 +21,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Install release dependencies
+        run: npm ci
+
       - name: The tag must match package.json
         run: |
           v="$(node -p "require('./package.json').version")"
