@@ -32,6 +32,9 @@ jobs:
       - name: Build the release bundle
         run: npm run pack
 
+      - name: Build Windows installer
+        run: npm run desktop:dist
+
       - name: Extract this version's notes from CHANGELOG.md
         run: |
           v="${GITHUB_REF_NAME#v}"
@@ -47,6 +50,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            dist/SIYADA.html dist/SIYADA_Server.zip \
+            dist/SIYADA.html dist/SIYADA_Server.zip dist/desktop/SIYADA-Setup-*.exe dist/desktop/latest.yml dist/desktop/*.blockmap \
             --title "SIYADA ${GITHUB_REF_NAME}" \
             --notes-file release-notes.md

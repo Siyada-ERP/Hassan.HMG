@@ -4,12 +4,15 @@
   "private": true,
   "description": "SIYADA — double-entry accounting for trading companies. One offline HTML file, plus an optional multi-company, multi-user Node server.",
   "license": "UNLICENSED",
+  "main": "desktop/main.js",
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
     "build": "node scripts/build.js",
     "start": "npm run build && node server/server.js",
+    "desktop": "npm run build && electron desktop/main.js",
+    "desktop:dist": "npm run build && electron-builder --win",
     "test": "npm run build && npm run test:engine && npm run test:server",
     "test:engine": "node tests/engine/engine.test.js tests/fixtures/clean && node tests/engine/engine.test.js tests/fixtures/manual",
     "test:server": "npm --prefix server test",
@@ -17,5 +20,41 @@
     "test:all": "npm test && npm run test:e2e",
     "pack": "npm run build && python3 scripts/pack.py",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('server/public',{recursive:true,force:true})\""
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.siyada.desktop",
+    "productName": "SIYADA",
+    "artifactName": "SIYADA-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist/desktop"
+    },
+    "files": [
+      "desktop/main.js",
+      "dist/SIYADA.html"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Siyada-ERP",
+        "repo": "siyada",
+        "releaseType": "release"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }
