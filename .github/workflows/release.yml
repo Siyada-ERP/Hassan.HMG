@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  release-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -35,8 +35,54 @@ jobs:
       - name: Build the release bundle
         run: npm run pack
 
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-bundle
+          path: |
+            dist/SIYADA.html
+            dist/SIYADA_Server.zip
+
+  desktop-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install release dependencies
+        run: npm ci
+
       - name: Build Windows installer
-        run: npm run desktop:dist
+        run: |
+          npm run build
+          npx electron-builder --win --publish never
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: dist/desktop
+
+  publish:
+    needs: [release-build, desktop-build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download release bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: release-bundle
+          path: dist
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-installer
+          path: dist/desktop
 
       - name: Extract this version's notes from CHANGELOG.md
         run: |
