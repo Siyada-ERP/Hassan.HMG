@@ -269,7 +269,12 @@ function saveAdv(again) {
   const d = (kind === 'adv' ? 'سلفة ' : 'سداد سلفة ') + e.name + (note ? ' - ' + note : '');
   const lines = kind === 'adv' ? [{ acc: ADV_ACC(), dr: amt, cr: 0, pc: e.code, pn: e.name, desc: d }, { acc, dr: 0, cr: amt, pc: '', pn: '', desc: d }] : [{ acc, dr: amt, cr: 0, pc: '', pn: '', desc: d }, { acc: ADV_ACC(), dr: 0, cr: amt, pc: e.code, pn: e.name, desc: d }];
   const rec = { date, type: kind === 'adv' ? 'سلفة' : 'سداد سلفة', doc, desc: d, emp: e.code, kind, note, lines };
-  if (old) Object.assign(old, rec); else APP.S.manual.push(Object.assign({ jno: 0, seq: 4e6 + APP.nextId('man') }, rec));
+  if (old) {
+    const i = APP.S.manual.indexOf(old);
+    APP.S.manual.splice(i, 1, Object.assign({ jno: old.jno, seq: old.seq }, rec));
+  } else {
+    APP.S.manual.push(Object.assign({ jno: 0, seq: 4e6 + APP.nextId('man') }, rec));
+  }
   APP.bumpDoc(doc); APP.UI.keepDate = date;
   if (APP.commit('تم حفظ ' + (kind === 'adv' ? 'السلفة' : 'سداد السلفة') + '.', { norender: true })) { if (again && !old) { APP.UI.prefEmp = e.code; APP.go('empadv'); APP.rerender(); } else APP.go('empadv'); }
 }
