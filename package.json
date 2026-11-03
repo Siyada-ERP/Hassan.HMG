@@ -1,6 +1,6 @@
 {
   "name": "siyada",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "private": true,
   "description": "SIYADA — double-entry accounting for trading companies. One offline HTML file, plus an optional multi-company, multi-user Node server.",
   "license": "UNLICENSED",
