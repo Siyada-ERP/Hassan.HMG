@@ -6,11 +6,15 @@ const { autoUpdater } = require('electron-updater');
 
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.allowDowngrade = false;
+autoUpdater.logger = require('electron-log');
 
 function checkForUpdates() {
   if (!app.isPackaged) return;
+  autoUpdater.logger.info('[updates] checking for updates');
   autoUpdater.checkForUpdates().catch(error => {
-    console.error('[updates] check failed:', error.message);
+    autoUpdater.logger.error('[updates] check failed:', error);
+    dialog.showErrorBox('تحديث SIYADA', 'تعذر التحقق من التحديثات:\n' + error.message);
   });
 }
 
@@ -38,6 +42,15 @@ autoUpdater.on('update-downloaded', async () => {
     message: 'تم تنزيل التحديث. أعد تشغيل البرنامج لتثبيته.'
   });
   if (choice.response === 0) autoUpdater.quitAndInstall();
+});
+
+autoUpdater.on('download-progress', progress => {
+  autoUpdater.logger.info('[updates] download', Math.round(progress.percent) + '%', progress.bytesPerSecond, progress.transferred, progress.total);
+});
+
+autoUpdater.on('error', error => {
+  autoUpdater.logger.error('[updates] error:', error);
+  dialog.showErrorBox('تحديث SIYADA', 'فشل تنزيل أو تثبيت التحديث:\n' + error.message);
 });
 
 function createWindow() {

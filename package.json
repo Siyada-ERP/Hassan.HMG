@@ -1,6 +1,6 @@
 {
   "name": "siyada",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "SIYADA — double-entry accounting for trading companies. One offline HTML file, plus an optional multi-company, multi-user Node server.",
   "license": "UNLICENSED",
@@ -23,7 +23,8 @@
   },
   "devDependencies": {
     "electron": "^39.0.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "electron-log": "^5.4.0"
   },
   "build": {
     "appId": "com.siyada.desktop",
