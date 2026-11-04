@@ -152,7 +152,7 @@ R_.settings = {
   html() {
     const s = APP.S.settings;
     let h = '<div class="sheet doc settings-sheet"><div class="sh"><div class="t"><div class="co">' + esc(s.company) + '</div><div class="ti">إعدادات المشروع</div></div></div>' +
-      '<div class="settings-tabs" role="tablist"><button class="btn s on" data-act="settingsTab" data-tab="company">الشركة والهوية</button><button class="btn s" data-act="settingsTab" data-tab="accounting">المحاسبة والضريبة</button><button class="btn s" data-act="settingsTab" data-tab="inventory">المخزون</button><button class="btn s" data-act="settingsTab" data-tab="documents">الفواتير</button><button class="btn s" data-act="settingsTab" data-tab="users">المستخدمون</button></div><section class="settings-panel on" data-settings-panel="company">' +
+      '<div class="settings-tabs" role="tablist"><button class="btn s on" data-act="settingsTab" data-tab="company">الشركة والهوية</button><button class="btn s" data-act="settingsTab" data-tab="accounting">المحاسبة والضريبة</button><button class="btn s" data-act="settingsTab" data-tab="inventory">المخزون</button><button class="btn s" data-act="settingsTab" data-tab="documents">الفواتير</button><button class="btn s" data-act="settingsTab" data-tab="security">الحماية</button><button class="btn s" data-act="settingsTab" data-tab="users">المستخدمون</button></div><section class="settings-panel on" data-settings-panel="company">' +
       '<p class="muted" style="margin-top:0">اسم الشركة بيتطبق فورًا على الشريط الجانبي وعنوان الصفحة وكل التقارير والفواتير المطبوعة.</p>' +
       '<div class="frow c2"><label class="f">اسم الشركة <span class="req">*</span><input class="in" id="sCo" value="' + esc(s.company) + '"></label><label class="f">النشاط<input class="in" id="sAct" value="' + esc(s.activity) + '"></label></div>' +
       '<div class="frow"><label class="f">كود نشاط المكلف (ETA)<input class="in n" id="sEtaAct" value="' + esc(s.etaActivity) + '"></label><label class="f">تنبيه العملاء المتأخرين بعد (يوم)<input class="in n" id="sAlD" value="' + esc(s.alertDays) + '"></label></div>' +
@@ -168,7 +168,8 @@ R_.settings = {
       '<h2 class="settings-subtitle">الحسابات الأساسية</h2><div class="frow">' +
       ACC_FIELDS.map(f => '<label class="f">' + f[1] + '<select class="in" data-k="' + f[0] + '">' + APP.accOptions(s[f[0]]) + '</select></label>').join('') + '</div></section>' +
       '<section class="settings-panel" data-settings-panel="inventory"><h2 class="settings-subtitle">إعدادات المخزون</h2><div class="frow"><label class="f">المخزن الافتراضي<select class="in" id="sDefaultWh">' + APP.S.warehouses.map(w => '<option value="' + esc(w.id) + '"' + (w.id === s.defaultWarehouseId ? ' selected' : '') + '>' + esc(w.name) + '</option>').join('') + '</select></label><label class="f">اختيار المخزن في الفواتير<select class="in" id="sWhSelect"><option value="1"' + (s.warehouseSelection !== false ? ' selected' : '') + '>مفعّل</option><option value="0"' + (s.warehouseSelection === false ? ' selected' : '') + '>معطّل — يستخدم الافتراضي تلقائيًا</option></select></label></div><div class="bn"><span>الأرصدة والحركات القديمة تُرحّل تلقائيًا إلى المخزن الافتراضي.</span><a class="btn s" href="#/warehouse">إدارة المخازن</a><a class="btn s" href="#/stocktransfer">تحويل بين المخازن</a></div></section>' +
-      '<section class="settings-panel" data-settings-panel="documents"><h2 class="settings-subtitle">إعدادات الفواتير والمستندات</h2><div class="bn"><span>ترقيم المستندات وطرق الدفع وتصنيفات المصروفات والإيرادات تُدار من شاشة ربط الحسابات.</span><a class="btn s" href="#/mapping">فتح ربط الحسابات</a></div></section>' +
+      '<section class="settings-panel" data-settings-panel="documents"><h2 class="settings-subtitle">إعدادات الفواتير والمستندات</h2><div class="frow"><label class="f">مقاس الطباعة الافتراضي<select class="in" id="sPrintSize"><option value="a4"' + (s.printSize !== 'a5' ? ' selected' : '') + '>A4</option><option value="a5"' + (s.printSize === 'a5' ? ' selected' : '') + '>A5</option></select></label><label class="f">العملة<input class="in" id="sCurrency" value="' + esc(s.currency || 'جنيه مصري') + '"></label></div><h2 class="settings-subtitle">وسائل الدفع المفعّلة</h2><div class="frow"><label class="f"><input type="checkbox" id="pmCash"' + (s.paymentMethods.indexOf('cash') >= 0 ? ' checked' : '') + '> نقدي</label><label class="f"><input type="checkbox" id="pmBank"' + (s.paymentMethods.indexOf('bank') >= 0 ? ' checked' : '') + '> تحويل بنكي</label><label class="f"><input type="checkbox" id="pmInstapay"' + (s.paymentMethods.indexOf('instapay') >= 0 ? ' checked' : '') + '> InstaPay</label><label class="f"><input type="checkbox" id="pmWallet"' + (s.paymentMethods.indexOf('wallet') >= 0 ? ' checked' : '') + '> محفظة إلكترونية</label><label class="f"><input type="checkbox" id="pmCheque"' + (s.paymentMethods.indexOf('cheque') >= 0 ? ' checked' : '') + '> شيك</label></div><div class="bn"><span>الحسابات البنكية والمحافظ تُضاف وتُربط من شجرة الحسابات وربط الحسابات.</span><a class="btn s" href="#/mapping">فتح ربط الحسابات</a></div></section>' +
+      '<section class="settings-panel" data-settings-panel="security"><h2 class="settings-subtitle">الحماية المحلية</h2><label class="f"><input type="checkbox" id="sPasswordEnabled"' + (s.localPasswordEnabled ? ' checked' : '') + '> تفعيل كلمة مرور عند تشغيل البرنامج</label><div class="frow" style="margin-top:12px"><label class="f">كلمة المرور الجديدة<input class="in" id="sPassword" type="password" autocomplete="new-password" placeholder="8 أحرف على الأقل"></label><label class="f">تأكيد كلمة المرور<input class="in" id="sPassword2" type="password" autocomplete="new-password"></label></div><p class="muted sm">الحماية تمنع فتح البرنامج على هذا الجهاز. النسخ الاحتياطية JSON ليست مشفّرة، فاحفظها في مكان آمن.</p></section>' +
       '<section class="settings-panel" data-settings-panel="users"><h2 class="settings-subtitle">المستخدمون والصلاحيات</h2><div class="bn"><span>النسخة المحلية تحفظ البيانات على الجهاز. إدارة المستخدمين والصلاحيات متعددة الحسابات متاحة عند تشغيل نسخة السيرفر.</span><a class="btn s" href="#/team">إدارة الفريق</a></div></section>' +
       '<div id="sErr" class="err"></div><div class="toolbar"><button class="btn primary" data-act="saveSettings">حفظ الإعدادات</button></div></div>';
     return h;
@@ -184,15 +185,36 @@ APP.acts.settingsTab = b => {
   $$('[data-settings-panel]').forEach(x => x.classList.toggle('on', x.dataset.settingsPanel === tab));
 };
 APP.acts.rmLogo = () => { APP.S.settings.logo = ''; APP.applyCompany(); APP.saveSoon(); APP.rerender(); };
-APP.acts.saveSettings = () => {
+APP.acts.saveSettings = async () => {
   const s = APP.S.settings; const co = $('#sCo').value.trim();
   if (!co) { $('#sErr').textContent = 'اسم الشركة مطلوب.'; return; }
   const sd = $('#sStart').value; if (!sd) { $('#sErr').textContent = 'اكتب تاريخ بداية الدفاتر.'; return; }
   const vr = parseFloat($('#sVr').value); if (!(vr >= 0 && vr < 100)) { $('#sErr').textContent = 'نسبة الضريبة لازم تكون بين 0 و 100.'; return; }
-  Object.assign(s, { company: co, activity: $('#sAct').value.trim(), taxNo: $('#sTax').value.trim(), branch: $('#sBr').value.trim() || '0', phone: $('#sPh').value.trim(), gov: $('#sGov').value.trim(), city: $('#sCity').value.trim(), street: $('#sSt').value.trim(), bldg: $('#sBl').value.trim(), startDate: sd, closedUntil: $('#sLock').value, etaActivity: $('#sEtaAct').value.trim(), alertDays: parseInt($('#sAlD').value, 10) || 60, vatOn: $('#sVat').value === '1', vatRate: vr, uiTheme: $('#sTheme').value, uiDensity: $('#sDensity').value, defaultWarehouseId: $('#sDefaultWh').value, warehouseSelection: $('#sWhSelect').value === '1' });
+  Object.assign(s, { company: co, activity: $('#sAct').value.trim(), taxNo: $('#sTax').value.trim(), branch: $('#sBr').value.trim() || '0', phone: $('#sPh').value.trim(), gov: $('#sGov').value.trim(), city: $('#sCity').value.trim(), street: $('#sSt').value.trim(), bldg: $('#sBl').value.trim(), startDate: sd, closedUntil: $('#sLock').value, etaActivity: $('#sEtaAct').value.trim(), alertDays: parseInt($('#sAlD').value, 10) || 60, vatOn: $('#sVat').value === '1', vatRate: vr, uiTheme: $('#sTheme').value, uiDensity: $('#sDensity').value, defaultWarehouseId: $('#sDefaultWh').value, warehouseSelection: $('#sWhSelect').value === '1', printSize: $('#sPrintSize').value, currency: $('#sCurrency').value.trim() || 'جنيه مصري', paymentMethods: ['cash', 'bank', 'instapay', 'wallet', 'cheque'].filter(k => $('#pm' + k[0].toUpperCase() + k.slice(1)).checked) });
   if (APP.UI.newLogo !== undefined) s.logo = APP.UI.newLogo;
+  const passwordEnabled = $('#sPasswordEnabled').checked, password = $('#sPassword').value, password2 = $('#sPassword2').value;
+  if (passwordEnabled && !s.localPasswordHash && password.length < 8) { $('#sErr').textContent = 'كلمة المرور لازم تكون 8 أحرف على الأقل.'; return; }
+  if (password || password2) {
+    if (password.length < 8 || password !== password2) { $('#sErr').textContent = 'كلمتا المرور لازم تتطابقا وتكونا 8 أحرف على الأقل.'; return; }
+    const salt = crypto.getRandomValues(new Uint8Array(16)).join('.');
+    s.localPasswordSalt = salt; s.localPasswordHash = await APP.passwordDigest(password, salt);
+  }
+  s.localPasswordEnabled = passwordEnabled;
+  if (!passwordEnabled) { s.localPasswordSalt = ''; s.localPasswordHash = ''; }
   $$('select[data-k]').forEach(x => { s[x.dataset.k] = x.value; });
   APP.applyCompany(); APP.commit('تم حفظ الإعدادات.');
+};
+
+R_.appinfo = {
+  title: 'معلومات البرنامج',
+  html() {
+    const s = APP.S.settings;
+    return '<div class="sheet doc"><div class="sh"><div class="t"><div class="co">' + esc(s.company || 'SIYADA') + '</div><div class="ti">معلومات البرنامج</div></div></div>' +
+      '<div class="kpis"><div class="kpi"><small>اسم البرنامج</small><b>SIYADA</b></div><div class="kpi"><small>الإصدار</small><b class="n">' + esc(APP.VERSION) + '</b></div><div class="kpi"><small>نوع النسخة</small><b>Windows / محلية</b></div></div>' +
+      '<div class="panel"><h2>حالة البيانات</h2><p>التخزين الحالي: <b>' + esc(APP.store.mode() === 'idb' ? 'قاعدة بيانات محلية مشفّرة من المتصفح' : APP.store.mode() === 'ls' ? 'التخزين المحلي للمتصفح' : 'ذاكرة مؤقتة') + '</b></p><p>آخر نسخة احتياطية: <span class="n">' + esc(s.metaBackup || APP.S.meta.lastBackup || 'لم يتم إنشاء نسخة بعد') + '</span></p><p class="muted">خذ نسخة JSON دورية من ملف ← البيانات ← نسخة احتياطية، واحتفظ بها خارج الجهاز.</p></div>' +
+      '<div class="panel"><h2>التحديثات</h2><p class="muted">نسخة Windows تتحقق من التحديثات عند التشغيل إذا كانت منشورة على GitHub Releases. لا تحذف النسخة القديمة قبل التأكد من نجاح التحديث.</p></div>' +
+      '<p class="muted sm">SIYADA — نظام محاسبي عربي لإدارة المبيعات والمشتريات والمخزون والحسابات.</p></div>';
+  }
 };
 
 /* ---------- mapping ---------- */

@@ -15,6 +15,8 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - تحسين مظهر عناوين الشاشات والجداول، وإعادة تسمية دليل الحسابات إلى **شجرة الحسابات** مع تمييز مجموعات الحسابات بصريًا.
 - إضافة تصدير موحد لتقارير الجداول بصيغة Excel المتوافقة مع Microsoft Excel، مع زر PDF عبر حوار الطباعة، مع الحفاظ على تصدير CSV.
 - إضافة أزرار طباعة المستندات بمقاسي A4 وA5، مع إظهار حساب الدفع وبيانات البنك أو المحفظة في الفاتورة.
+- توسيع إعدادات البرنامج لتشمل مقاس الطباعة الافتراضي، العملة، وسائل الدفع المفعّلة، وإضافة شاشة معلومات الإصدار وحالة البيانات.
+- إضافة حماية محلية اختيارية بكلمة مرور، مع شاشة قفل عند بدء التشغيل وإمكانية تغيير كلمة المرور أو تعطيلها من إعدادات البرنامج.
 - `tests/e2e/run_all.py --retry=N` re-runs a failing suite (CI uses `--retry=1`); a suite that only passes on retry is reported as FLAKY with a GitHub warning, and the end of the output lists every failing check.
 - Dependabot groups GitHub-Actions and Python updates into one pull request each and keeps at most 2 open per ecosystem.
 

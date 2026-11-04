@@ -29,7 +29,9 @@ E.defaultSettings = function () {
     accCash: '1101', accAR: '1201', accAP: '2101', accInv: '1301', accCogs: '5101', accSales: '4101', accSusp: '9999',
     accOpen: '3101', accRE: '3201', accVatOut: '2102', accVatIn: '1203', accExp: '5207', accInc: '4201',
     openCash: 0, closedUntil: '', etaActivity: '', alertDays: 60, uiTheme: 'green_gold', uiDensity: 'comfortable',
-    defaultWarehouseId: 'main', warehouseSelection: true
+    defaultWarehouseId: 'main', warehouseSelection: true,
+    printSize: 'a4', paymentMethods: ['cash', 'bank', 'instapay', 'wallet', 'cheque'],
+    localPasswordEnabled: false, localPasswordSalt: '', localPasswordHash: ''
   };
 };
 

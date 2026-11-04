@@ -5,12 +5,20 @@
 'use strict';
 const APP = root.APP, E = root.SiyadaEngine, I = root.SiyadaImporter, T = E.T, r2 = E.r2, num = E.num;
 const { $, $$, esc } = APP;
+APP.VERSION = '1.0.3';
+APP.locked = false;
+APP.passwordDigest = async function (password, salt) {
+  if (!root.crypto || !root.crypto.subtle) throw new Error('الحماية بكلمة مرور تحتاج تشغيل البرنامج في بيئة آمنة.');
+  const data = new TextEncoder().encode(String(salt) + ':' + String(password));
+  const digest = await root.crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map(x => x.toString(16).padStart(2, '0')).join('');
+};
 APP.net = APP.net || { on: false, ready: false, detect: async () => false };
 
 /* Top menu bar (Dexef style): headings only, each opens a drop-down of the screens it is responsible for.
    entry: [route,label(,arg)] | ['!act',label] | ['-',title] (section header, '' = separator) | ['>',label,[entries]] (fly-out) */
 const MENU = [
-  ['ملف', [['settings', 'إعدادات الشركة'], ['mapping', 'ربط الحسابات'], ['>', 'البيانات', [['import', 'استيراد بيانات'], ['backup', 'نسخة احتياطية'], ['checks', 'فحوصات التناسق']]], ['-', ''], ['closing', 'إقفال السنة']]],
+  ['ملف', [['settings', 'إعدادات البرنامج'], ['appinfo', 'معلومات البرنامج'], ['mapping', 'ربط الحسابات'], ['>', 'البيانات', [['import', 'استيراد بيانات'], ['backup', 'نسخة احتياطية'], ['checks', 'فحوصات التناسق']]], ['-', ''], ['closing', 'إقفال السنة']]],
   ['المبيعات', [['sale', 'فاتورة بيع'], ['salret', 'مرتجع مبيعات'], ['receipt', 'تحصيل من عميل (سند قبض)'], ['-', 'المراجع والتقارير'], ['refsale', 'مرجع المبيعات'], ['netqty', 'الكمية بعد المرتجع', 's'], ['salesrep', 'تقرير المبيعات والمشتريات']]],
   ['المشتريات', [['purchase', 'فاتورة شراء'], ['purret', 'مرتجع مشتريات'], ['payment', 'سداد لمورد (سند دفع)'], ['-', 'المراجع والتقارير'], ['refpur', 'مرجع المشتريات'], ['netqty', 'الكمية بعد المرتجع', 'p']]],
   ['المخازن', [['warehouse', 'المخازن'], ['stocktransfer', 'تحويل بين المخازن'], ['items', 'الأصناف'], ['prices', 'قوائم الأسعار']]],
@@ -128,6 +136,7 @@ APP.render = function (reset) {
   try { renderNow(reset); } finally { rendering = false; }
 };
 function renderNow(reset) {
+  if (APP.locked) { shellOn = false; showLock(); return; }
   if (!APP.S || !APP.S.settings.company) { shellOn = false; showSetup(); return; }
   if (!shellOn || !$('#app')) { buildShell(); shellOn = true; }
   const p = parseHash(); if (APP.guardRoute && !APP.guardRoute(p.route)) { p.route = 'dashboard'; if (location.hash !== '#/dashboard') history.replaceState(null, '', '#/dashboard'); }
@@ -143,6 +152,19 @@ function renderNow(reset) {
   renderBanner();
 }
 APP.rerender = () => APP.render(false);
+function showLock() {
+  $('#root').innerHTML = '<div id="setup"><div class="form"><div class="word">SIYADA</div><h1>البرنامج مقفول</h1><div class="sub">اكتب كلمة المرور المحلية لفتح بيانات الشركة على هذا الجهاز.</div><label class="f">كلمة المرور<input class="in" id="lockPw" type="password" autocomplete="current-password"></label><div id="lockErr" class="err"></div><div class="toolbar"><button class="btn primary" data-act="unlock">فتح البرنامج</button></div><p class="muted sm">هذه الحماية تمنع فتح البرنامج محليًا، لكنها لا تشفّر ملف النسخة الاحتياطية JSON.</p></div></div>';
+  $('#lockPw').focus();
+}
+APP.acts.unlock = async () => {
+  const input = $('#lockPw'), err = $('#lockErr');
+  if (!input || !input.value) { err.textContent = 'اكتب كلمة المرور.'; return; }
+  try {
+    const hash = await APP.passwordDigest(input.value, APP.S.settings.localPasswordSalt);
+    if (hash !== APP.S.settings.localPasswordHash) { err.textContent = 'كلمة المرور غير صحيحة.'; input.select(); return; }
+    APP.locked = false; APP.render(true);
+  } catch (e) { err.textContent = e.message; }
+};
 
 function renderBanner() {
   const el = $('#banner'); if (!el) return; const S = APP.S; let h = '';
@@ -328,7 +350,7 @@ APP.boot = async function () {
   if (await APP.net.detect()) { APP.net.on = true; return APP.net.boot(); }
   let S = null;
   try { S = await APP.store.load(); } catch (e) { S = null; }
-  if (S && S.settings) { APP.S = APP.normalizeState(S); try { APP.R = E.build(APP.S); APP.index(); } catch (e) { console.error(e); } }
+  if (S && S.settings) { APP.S = APP.normalizeState(S); APP.locked = !!(APP.S.settings.localPasswordEnabled && APP.S.settings.localPasswordHash); try { APP.R = E.build(APP.S); APP.index(); } catch (e) { console.error(e); } }
   else APP.S = null;
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { }
   APP.render(true);

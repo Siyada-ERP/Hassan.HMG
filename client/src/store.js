@@ -112,6 +112,8 @@ APP.parseBackup = function (text) {
 APP.normalizeState = function (S) {
   const d = APP.newState();
   S.settings = Object.assign(E.defaultSettings(), S.settings || {});
+  if (!Array.isArray(S.settings.paymentMethods) || !S.settings.paymentMethods.length) S.settings.paymentMethods = E.defaultSettings().paymentMethods.slice();
+  if (typeof S.settings.localPasswordEnabled !== 'boolean') S.settings.localPasswordEnabled = !!S.settings.localPasswordHash;
   ['coa', 'parties', 'items', 'transactions', 'manual'].forEach(k => { if (!Array.isArray(S[k])) S[k] = []; });
   if (!Array.isArray(S.warehouses) || !S.warehouses.length) S.warehouses = [{ id: 'main', name: 'المخزن الرئيسي', active: true }];
   const seenWh = new Set(), wh = [];
