@@ -173,6 +173,14 @@ APP.alerts = function () {
   const stale = R.parties.filter(p => p.type === T.cust && p.balance > 0.5 && p.count > 0 && (lastColl.get(p.code) || '') < cut).sort((a, b) => b.balance - a.balance);
   const low = R.items.filter(x => x.reorder > 0 && x.onHand <= x.reorder && x.onHand >= 0).sort((a, b) => a.onHand - b.onHand);
   const neg = R.items.filter(x => x.onHand < -0.0005).sort((a, b) => a.onHand - b.onHand);
-  return { days, over, stale, low, neg };
+  const due = (type, invoiceType) => R.parties.filter(p => p.type === type && p.balance > 0.004 && p.creditDays > 0).map(p => {
+    const inv = S.transactions.filter(t => t.partyCode === p.code && t.partyType === type && t.type === invoiceType && t.date <= today).sort((x, y) => y.date < x.date ? -1 : y.date > x.date ? 1 : 0)[0];
+    if (!inv) return null;
+    const d = new Date(inv.date + 'T12:00:00'); d.setDate(d.getDate() + p.creditDays);
+    const dueDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (dueDate >= today) return null;
+    return Object.assign({}, p, { overdueDays: Math.floor((new Date(today + 'T12:00:00') - d) / 86400000) });
+  }).filter(Boolean).sort((x, y) => y.overdueDays - x.overdueDays);
+  return { days, over, stale, low, neg, dueCustomers: due(T.cust, T.sale), dueSuppliers: due(T.supp, T.buy) };
 };
 })(window);

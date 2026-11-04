@@ -137,12 +137,13 @@ R_.salesrep = {
       const m = new Map(); const sales = v === 'cust';
       S.transactions.forEach(t => {
         if (!inP(t)) return; if (sales ? t.source !== T.sales : t.source !== T.purch) return;
-        const k = t.partyCode || t.partyName; let r = m.get(k); if (!r) { r = { name: t.partyName, code: t.partyCode, g: 0, rt: 0, ds: 0, pd: 0, n: 0 }; m.set(k, r); }
+        const k = t.partyCode || t.partyName; let r = m.get(k); if (!r) { r = { name: t.partyName, code: t.partyCode, g: 0, rt: 0, ds: 0, pd: 0, cost: 0, n: 0 }; m.set(k, r); }
         const amt = t.debit + t.credit;
-        if (t.type === (sales ? T.sale : T.buy)) { r.g += amt; r.n++; } else if (t.type === (sales ? T.ret : T.retBuy)) r.rt += amt; else if (t.type === T.disc) r.ds += amt; else if (t.type === (sales ? T.coll : T.pay)) r.pd += amt;
+        const inf = R.txInfo.get(t.id) || {};
+        if (t.type === (sales ? T.sale : T.buy)) { r.g += amt; r.cost += sales ? (inf.cost || 0) : 0; r.n++; } else if (t.type === (sales ? T.ret : T.retBuy)) { r.rt += amt; r.cost += sales ? (inf.cost || 0) : 0; } else if (t.type === T.disc) r.ds += amt; else if (t.type === (sales ? T.coll : T.pay)) r.pd += amt;
       });
-      m.forEach(r => { r.net = r2(r.g - r.rt - r.ds); rows.push(r); }); rows.sort((a, b) => b.net - a.net);
-      cols = [{ h: 'الاسم', f: r => '<a href="#/statement/' + encodeURIComponent(r.code) + '">' + esc(r.name) + '</a>' }, { h: sales ? 'المبيعات' : 'المشتريات', n: 1, f: r => nc(r.g), total: r => r.g }, { h: 'المرتجعات', n: 1, f: r => nc(r.rt, true), total: r => r.rt }, { h: 'الخصم', n: 1, f: r => nc(r.ds, true), total: r => r.ds }, { h: 'الصافي', n: 1, f: r => nc(r.net), total: r => r.net }, { h: sales ? 'المحصّل' : 'المسدد', n: 1, f: r => nc(r.pd, true), total: r => r.pd }];
+      m.forEach(r => { r.net = r2(r.g - r.rt - r.ds); r.profit = r2(r.net - r.cost); rows.push(r); }); rows.sort((a, b) => b.net - a.net);
+      cols = [{ h: 'الاسم', f: r => '<a href="#/statement/' + encodeURIComponent(r.code) + '">' + esc(r.name) + '</a>' }, { h: sales ? 'المبيعات' : 'المشتريات', n: 1, f: r => nc(r.g), total: r => r.g }, { h: 'المرتجعات', n: 1, f: r => nc(r.rt, true), total: r => r.rt }, { h: 'الخصم', n: 1, f: r => nc(r.ds, true), total: r => r.ds }, { h: 'الصافي', n: 1, f: r => nc(r.net), total: r => r.net }].concat(sales ? [{ h: 'التكلفة', n: 1, f: r => nc(r.cost), total: r => r.cost }, { h: 'الربح', n: 1, f: r => nc(r.profit), total: r => r.profit }] : []).concat([{ h: sales ? 'المحصّل' : 'المسدد', n: 1, f: r => nc(r.pd, true), total: r => r.pd }]);
     } else {
       const m = new Map(); const sales = v === 'itemS';
       S.transactions.forEach(t => {
@@ -155,6 +156,27 @@ R_.salesrep = {
     }
     const sel = '<label class="f">التقرير<select class="in" data-f="v" data-full="1"><option value="cust"' + (v === 'cust' ? ' selected' : '') + '>المبيعات حسب العميل</option><option value="itemS"' + (v === 'itemS' ? ' selected' : '') + '>المبيعات حسب الصنف</option><option value="supp"' + (v === 'supp' ? ' selected' : '') + '>المشتريات حسب المورد</option><option value="itemP"' + (v === 'itemP' ? ' selected' : '') + '>المشتريات حسب الصنف</option></select></label>';
     return '<div class="sheet">' + APP.sheetHead('تقرير المبيعات والمشتريات', period(from, to)) + '<div class="toolbar noprint">' + sel + APP.dateFilter(from, to) + '<button class="btn" data-act="full">عرض</button><button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="تقرير">تصدير CSV</button></div><div class="scroll">' + APP.table(cols, rows, { id: 'rpt', totals: true }) + '</div>' + (v === 'itemS' ? '<p class="muted sm">الربح = قيمة المبيعات بدون الضريبة − التكلفة بمتوسط التكلفة.</p>' : '') + '</div>';
+  }
+};
+
+/* ---------- cash movement ---------- */
+R_.cashflow = {
+  title: 'حركة النقدية',
+  html() {
+    const from = APP.fv('from', APP.S.settings.startDate), to = APP.fv('to', APP.today());
+    const accounts = APP.S.coa.filter(a => a.fin);
+    const rows = [];
+    accounts.forEach(a => {
+      let opening = 0, debit = 0, credit = 0;
+      APP.R.journal.filter(l => l.acc === a.code).forEach(l => {
+        if (from && l.date < from) opening += l.dr - l.cr;
+        else if ((!from || l.date >= from) && (!to || l.date <= to)) { debit += l.dr; credit += l.cr; }
+      });
+      rows.push({ a, opening, debit, credit, closing: opening + debit - credit });
+    });
+    return '<div class="sheet">' + APP.sheetHead('حركة النقدية والبنوك', period(from, to)) +
+      '<div class="toolbar noprint">' + APP.dateFilter(from, to) + '<button class="btn" data-act="full">عرض</button><button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="حركة_النقدية">تصدير CSV</button></div><div class="scroll">' +
+      APP.table([{ h: 'الحساب', f: r => '<a href="#/ledger/' + encodeURIComponent(r.a.code) + '">' + esc(r.a.code + ' - ' + r.a.name) + '</a>' }, { h: 'رصيد أول الفترة', n: 1, f: r => nc(r.opening), total: r => r.opening }, { h: 'مدين / وارد', n: 1, f: r => nc(r.debit), total: r => r.debit }, { h: 'دائن / صادر', n: 1, f: r => nc(r.credit, true), total: r => r.credit }, { h: 'الرصيد الختامي', n: 1, f: r => nc(r.closing), total: r => r.closing }], rows, { id: 'rpt', totals: true, empty: 'لا توجد حسابات نقدية أو بنكية.' }) + '</div></div>';
   }
 };
 })(window);

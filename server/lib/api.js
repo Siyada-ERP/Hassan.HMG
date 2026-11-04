@@ -181,7 +181,7 @@ route('POST', '/api/c/:cid/mutate', ctx => {
   need(A.hit('mut:' + ctx.session.userId, 600, 60e3), 429, 'عمليات كتيرة جدًا. استنى لحظة.');
   const rid = typeof ctx.body.reqId === 'string' ? c.cid + ':' + ctx.session.userId + ':' + ctx.body.reqId.slice(0, 40) : '';
   if (rid && recent.has(rid)) return recent.get(rid);
-  const out = D.mutate(c.cid, ctx.session, ctx.body);
+  const out = D.mutate(c.cid, ctx.session, ctx.body, c.role);
   if (rid) { recent.set(rid, out); if (recent.size > 500) recent.delete(recent.keys().next().value); }
   return out;
 }, { max: cfg.maxMutate });

@@ -291,7 +291,7 @@ E.build = function (S) {
   // ---- outputs
   R.parties = parties.map(p => ({
     code: p.code, name: p.name, type: p.type, phone: p.phone, address: p.address, opening: p.open, debit: r2(p.dr), credit: r2(p.cr),
-    balance: r2(p.type === T.cust ? p.open + p.dr - p.cr : p.open + p.cr - p.dr), limit: p.limit, last: p.last, priceList: p.priceList, count: p.cnt, adhoc: p.adhoc
+    balance: r2(p.type === T.cust ? p.open + p.dr - p.cr : p.open + p.cr - p.dr), limit: p.limit, creditDays: num(((S.parties || []).find(x => x.code === p.code && x.type === p.type) || {}).creditDays), last: p.last, priceList: p.priceList, count: p.cnt, adhoc: p.adhoc
   }));
   R.items = items.map(x => ({
     code: x.code, name: x.name, unit: x.unit, weight: x.weight, openQty: x.openQty, openCost: x.openCost, vat: x.vat >= 0 ? x.vat : '', eta: x.eta, etaType: x.etaType,

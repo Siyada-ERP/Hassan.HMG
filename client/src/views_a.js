@@ -48,8 +48,11 @@ function alertsPanel() {
   const blk = (title, arr, f, link) => '<div class="al"><b>' + title + ' <span class="chip ' + (arr.length ? 'warn' : 'ok') + ' n">' + arr.length + '</span></b>' + (arr.length ? '<ul>' + arr.slice(0, 5).map(f).join('') + '</ul>' + (arr.length > 5 ? '<a class="sm" href="' + link + '">كل القايمة (' + arr.length + ')</a>' : '') : '<div class="muted sm" style="margin-top:6px">✓ مفيش</div>') + '</div>';
   const pl = p => '<li><a href="#/statement/' + encodeURIComponent(p.code) + '">' + esc(p.name) + '</a>';
   const il = x => '<li><a href="#/itemcard/' + encodeURIComponent(x.code) + '">' + esc(x.name) + '</a>';
+  const dl = p => '<li><a href="#/statement/' + encodeURIComponent(p.code) + '">' + esc(p.name) + '</a><span class="n neg">+' + fmt(p.balance) + '</span> <small class="muted">متأخر ' + p.overdueDays + ' يوم</small></li>';
   return '<div class="panel" style="margin-bottom:22px"><h2>تنبيهات</h2><div class="alerts">' +
     blk('عملاء تعدّوا الحد الائتماني', a.over, p => pl(p) + '<span class="n neg">+' + fmt(p.balance - p.limit) + '</span></li>', '#/customers') +
+    blk('عملاء عليهم فواتير مستحقة', a.dueCustomers, dl, '#/aging') +
+    blk('موردون لهم مستحقات متأخرة', a.dueSuppliers, dl, '#/supplieraging') +
     blk('عملاء بدون تحصيل من ' + a.days + ' يوم', a.stale, p => pl(p) + '<span class="n">' + fmt(p.balance) + '</span></li>', '#/customers') +
     blk('أصناف وصلت حد الطلب', a.low, x => il(x) + '<span class="n">' + APP.fmtq(x.onHand) + '</span></li>', '#/items') +
     blk('أصناف رصيدها سالب', a.neg, x => il(x) + '<span class="n neg">' + APP.fmtq(x.onHand) + '</span></li>', '#/items') + '</div></div>';
@@ -87,7 +90,6 @@ R_.dashboard = {
     return h;
   }
 };
-
 R_.analytics = {
     title: 'تحليل البيانات',
     html() {

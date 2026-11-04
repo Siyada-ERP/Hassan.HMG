@@ -6,6 +6,7 @@
 const APP = root.APP, E = root.SiyadaEngine, T = E.T, r2 = E.r2, num = E.num;
 const { $, $$, esc, fmt, nc } = APP;
 const R_ = APP.routes;
+function dueDate(date, days) { if (!date || !(days > 0)) return ''; const d = new Date(date + 'T12:00:00'); d.setDate(d.getDate() + days); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
 const KINDS = {
   sale: { title: 'فاتورة بيع', k: 'inv', src: T.sales, lt: T.sale, side: 'dr', pty: T.cust, pre: 'FB-', pk: 'lastSell', pay: { tp: T.coll, side: 'cr', label: 'المحصّل الآن' }, disc: { tp: T.disc, side: 'cr' }, partyLbl: 'العميل' },
@@ -97,7 +98,7 @@ function recalcInv() {
   });
   const disc = K.disc ? (parseFloat($('#fDisc').value) || 0) : 0, net = r2(gross - disc);
   $('#sPcs').textContent = APP.fmtq(pcs); $('#sGross').textContent = fmt(gross); $('#sNet').textContent = fmt(net);
-  if (K.pay) { const p = findParty($('#fP').value, K.pty), r = p && APP.pBy.get(p.code); let prev = r ? r.balance : 0; const edit = frm.dataset.edit; if (edit && p) prev -= APP.S.transactions.filter(t => t.doc === edit && t.partyCode === p.code).reduce((s, t) => s + t.debit - t.credit, 0); const paid = parseFloat($('#fPaid').value) || 0; $('#sPrev').textContent = fmt(prev); $('#sRest').textContent = fmt(K.lt === T.sale ? prev + net - paid : prev - net + paid); $('#rMeth').style.opacity = paid > 0 ? 1 : .45; }
+  if (K.pay) { const p = findParty($('#fP').value, K.pty), r = p && APP.pBy.get(p.code); let prev = r ? r.balance : 0; const edit = frm.dataset.edit; if (edit && p) prev -= APP.S.transactions.filter(t => t.doc === edit && t.partyCode === p.code).reduce((s, t) => s + (K.lt === T.sale ? t.debit - t.credit : t.credit - t.debit), 0); const paid = parseFloat($('#fPaid').value) || 0; $('#sPrev').textContent = fmt(prev); $('#sRest').textContent = fmt(K.lt === T.sale ? prev + net - paid : prev - net + paid); $('#rMeth').style.opacity = paid > 0 ? 1 : .45; }
 }
 /* العدد = الكمية ÷ وزن الصنف (لو الصنف له وزن). */
 const r3 = v => Math.round(v * 1000) / 1000;
@@ -150,7 +151,7 @@ function saveInvoice(again) {
     APP.UI.keepDate = date;
     if (APP.commit((edit ? 'تم تعديل ' : 'تم حفظ ') + K.title + ' ' + doc + '.', { norender: true })) { if (again && !edit) { APP.go(kind); APP.rerender(); } else APP.go('doc', doc); }
   };
-  if (kind === 'sale' && p.limit > 0) { const r = APP.pBy.get(p.code); const after = (r ? r.balance : 0) + net - paid - (edit ? 0 : 0); if (after > p.limit + 0.004) { APP.confirm('الحد الائتماني للعميل ' + p.name + ' هو ' + fmt(p.limit) + '، ورصيده بعد الفاتورة هيبقى ' + fmt(after) + '. تكمل الحفظ؟', 'حفظ').then(ok => { if (ok) finish(); }); return; } }
+  if (kind === 'sale' && p.limit > 0) { const r = APP.pBy.get(p.code); let prev = r ? r.balance : 0; if (edit) prev -= APP.S.transactions.filter(t => t.doc === edit && t.partyCode === p.code).reduce((s, t) => s + t.debit - t.credit, 0); const after = prev + net - paid; if (after > p.limit + 0.004) { APP.confirm('الحد الائتماني للعميل ' + p.name + ' هو ' + fmt(p.limit) + '، ورصيده بعد الفاتورة هيبقى ' + fmt(after) + '. تكمل الحفظ؟', 'حفظ').then(ok => { if (ok) finish(); }); return; } }
   finish();
 }
 
@@ -282,7 +283,7 @@ R_.doc = {
     const sumTp = tp => txs.filter(t => t.type === tp).reduce((s, t) => s + t.debit + t.credit, 0);
     let h = '<div class="sheet doc ' + (lines.length ? 'invoice-document' : 'voucher-document') + '">' + APP.sheetHead(title, arg) +
       '<div class="toolbar noprint"><button class="btn primary" data-act="print">طباعة</button>' + (kind ? '<a class="btn" href="#/' + kind + '/' + encodeURIComponent(arg) + '">تعديل</a>' : '<a class="btn" href="#/txs">تعديل من سجل الحركات</a>') + '<button class="btn danger" data-act="docDel" data-d="' + esc(arg) + '">حذف</button><a class="btn" href="#/docs">كل المستندات</a></div>' +
-      '<div class="frow doc-meta"><div><span class="muted sm">التاريخ</span><div class="n"><b>' + t0.date + '</b></div></div><div><span class="muted sm">' + (t0.source === T.treas ? 'التصنيف' : t0.source === T.sales ? 'العميل' : 'المورد') + '</span><div><b>' + esc(t0.partyName) + '</b> <span class="muted sm n">' + esc(t0.partyCode) + '</span></div></div><div><span class="muted sm">رقم القيد</span><div class="n">' + Array.from(new Set(info.map(i => i.jno))).filter(Boolean).join('، ') + '</div></div></div>';
+      '<div class="frow doc-meta"><div><span class="muted sm">التاريخ</span><div class="n"><b>' + t0.date + '</b></div></div><div><span class="muted sm">' + (t0.source === T.treas ? 'التصنيف' : t0.source === T.sales ? 'العميل' : 'المورد') + '</span><div><b>' + esc(t0.partyName) + '</b> <span class="muted sm n">' + esc(t0.partyCode) + '</span></div></div>' + (K && K.k === 'inv' && t0.partyCode && dueDate(t0.date, (APP.S.parties.find(p => p.code === t0.partyCode) || {}).creditDays) ? '<div><span class="muted sm">تاريخ الاستحقاق</span><div class="n"><b>' + dueDate(t0.date, (APP.S.parties.find(p => p.code === t0.partyCode) || {}).creditDays) + '</b></div></div>' : '') + '<div><span class="muted sm">رقم القيد</span><div class="n">' + Array.from(new Set(info.map(i => i.jno))).filter(Boolean).join('، ') + '</div></div></div>';
     if (lines.length) {
       h += APP.table([{ h: '#', f: (t) => '<span class="n">' + (lines.indexOf(t) + 1) + '</span>' }, { h: 'الصنف', f: t => esc(t.itemName || '—') }, { h: 'الوحدة', f: t => esc(((APP.iBy.get(t.itemCode) || {}).unit) || '') }, { h: 'الكمية', n: 1, f: t => '<span class="n">' + APP.fmtq(t.qty) + '</span>' }].concat(lines.some(t => t.pieces) ? [{ h: 'العدد', n: 1, f: t => t.pieces ? '<span class="n">' + APP.fmtq(t.pieces) + '</span>' : '', total: t => t.pieces, tf: v => '<span class="n">' + APP.fmtq(v) + '</span>' }] : []).concat([{ h: 'السعر', n: 1, f: t => nc(t.price) }, { h: 'الإجمالي', n: 1, f: t => nc(t.debit + t.credit), total: t => t.debit + t.credit }]), lines, { totals: true, totalLabel: 'إجمالي الأصناف' });
       const gross = lines.reduce((s, t) => s + t.debit + t.credit, 0), disc = K.disc ? sumTp(K.disc.tp) : 0, paid = K.pay ? sumTp(K.pay.tp) : 0, net = r2(gross - disc);

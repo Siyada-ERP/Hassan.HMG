@@ -52,9 +52,10 @@ function nextFreeCode(cid, coll, keyOf, code, used) {
 }
 
 /* ---------- كتابة تعديلات ---------- */
-function mutate(cid, user, body) {
+function mutate(cid, user, body, role) {
   const ops = body && body.ops; if (!Array.isArray(ops) || !ops.length) throw bad('مفيش تعديلات.');
   if (ops.length > 20000) throw bad('عدد التعديلات كبير جدًا.');
+  if (role !== 'owner' && ops.some(op => op && (op.data === null || op.data === undefined))) throw new HttpError(403, 'حذف السجلات مسموح للمالك فقط.');
   const out = tx(() => {
     const co = getCompany(cid); if (!co) throw new HttpError(404, 'الشركة مش موجودة.');
     const K = co.counters, rev = co.rev + 1;
@@ -125,7 +126,12 @@ function mutate(cid, user, body) {
     saveCounters(cid, K);
     P('co_rev', 'UPDATE companies SET rev=?, updated_at=? WHERE id=?').run(rev, now(), cid);
     if (newName) P('co_name', 'UPDATE companies SET name=? WHERE id=?').run(newName, cid);
-    log(cid, user, 'mutate', String(body.note || '').slice(0, 160) + (body.note ? ' ' : '') + '(' + plan.length + ')');
+    const deleted = plan.filter(p => p.del).length;
+    const changed = plan.length - deleted;
+    const groups = {};
+    plan.forEach(p => { groups[p.coll] = (groups[p.coll] || 0) + 1; });
+    const groupText = Object.keys(groups).map(k => k + ':' + groups[k]).join(', ');
+    log(cid, user, deleted ? 'delete' : 'mutate', String(body.note || '').slice(0, 120) + (body.note ? ' ' : '') + 'تعديل ' + changed + ' وحذف ' + deleted + ' [' + groupText + ']');
     return { rev, applied, counters: K };
   });
   notify(cid);
