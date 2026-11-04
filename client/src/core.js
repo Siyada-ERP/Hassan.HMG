@@ -183,6 +183,12 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenus(); document.body.classList.remove('nav'); } });
 APP.acts.print = () => root.print();
+APP.acts.printSize = b => {
+  const size = b.dataset.size === 'a5' ? 'a5' : 'a4';
+  document.documentElement.dataset.printSize = size;
+  root.print();
+  setTimeout(() => { delete document.documentElement.dataset.printSize; }, 500);
+};
 APP.acts.csv = (b) => { const t = $('#' + (b.dataset.t || 'rpt')) || $('table.grid'); if (t) APP.tableToCSV(t, (b.dataset.n || 'SIYADA') + '_' + APP.today()); };
 APP.acts.excel = (b) => { const t = $('#' + (b.dataset.t || 'rpt')) || $('table.grid'); if (t) APP.tableToExcel(t, (b.dataset.n || 'SIYADA') + '_' + APP.today()); };
 APP.acts.pdf = () => root.print();

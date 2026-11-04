@@ -315,6 +315,8 @@ svg.chart text{font-family:var(--font);font-size:11px;fill:var(--muted)}
   tr{break-inside:avoid}
   thead{display:table-header-group}
   @page{size:A4;margin:12mm}
+  @page a5{size:A5;margin:10mm}
+  html[data-print-size="a5"]{page:a5}
 }
 
 /* ---------- server mode ---------- */
