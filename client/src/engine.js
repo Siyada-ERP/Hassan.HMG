@@ -14,6 +14,7 @@ E.num = num;
 // Arabic literals used by the rules (kept in one place)
 const T = {
   sales: 'مبيعات', purch: 'مشتريات', treas: 'خزينة', manual: 'يدوي', opening: 'افتتاحي', auto: 'آلي',
+  stockTransfer: 'تحويل مخزني',
   cust: 'عميل', supp: 'مورد', party0: 'جهة',
   sale: 'بيع', ret: 'مرتجع', coll: 'تحصيل', disc: 'خصم', buy: 'شراء', retBuy: 'مرتجع شراء', pay: 'سداد', exp: 'مصروف', inc: 'إيراد',
   closing: 'إقفال', yes: 'نعم'
@@ -27,7 +28,8 @@ E.defaultSettings = function () {
     vatOn: false, vatRate: 14, vatIncl: true,
     accCash: '1101', accAR: '1201', accAP: '2101', accInv: '1301', accCogs: '5101', accSales: '4101', accSusp: '9999',
     accOpen: '3101', accRE: '3201', accVatOut: '2102', accVatIn: '1203', accExp: '5207', accInc: '4201',
-    openCash: 0, closedUntil: '', etaActivity: '', alertDays: 60, uiTheme: 'green_gold', uiDensity: 'comfortable'
+    openCash: 0, closedUntil: '', etaActivity: '', alertDays: 60, uiTheme: 'green_gold', uiDensity: 'comfortable',
+    defaultWarehouseId: 'main', warehouseSelection: true
   };
 };
 
@@ -57,7 +59,10 @@ E.build = function (S) {
   const expAcc = cat => { for (const m of M.expenses) if (m.key === cat) return m.acc; return ''; };
   const incAcc = cat => { for (const m of M.incomes) if (m.key === cat) return m.acc; return ''; };
 
-  const R = { journal: [], txInfo: new Map(), docs: [], parties: [], items: [], checks: [], counts: {}, warnings: [] };
+  const R = { journal: [], txInfo: new Map(), docs: [], items: [], stockMoves: [], checks: [], counts: {}, warnings: [] };
+  const warehouses = Array.isArray(S.warehouses) && S.warehouses.length ? S.warehouses : [{ id: 'main', name: 'المخزن الرئيسي', active: true }];
+  const whBy = new Map(warehouses.map(w => [w.id, w]));
+  const defaultWh = (st.defaultWarehouseId && whBy.has(st.defaultWarehouseId)) ? st.defaultWarehouseId : warehouses[0].id;
   let nMis = 0, nPreStart = 0, nNoCost = 0, nUnmapped = 0, nNoParty = 0, nNoItem = 0, nImb = 0, mUntracked = 0;
 
   // ---- items (runtime copy)
@@ -65,13 +70,19 @@ E.build = function (S) {
     code: x.code, name: x.name, unit: x.unit || '', weight: num(x.weight), openQty: num(x.openQty), openCost: num(x.openCost),
     vat: (x.vat === '' || x.vat === null || x.vat === undefined || isNaN(parseFloat(x.vat))) ? -1 : num(x.vat),
     eta: x.eta || '', etaType: x.etaType || '', reorder: num(x.reorder),
-    q: 0, v: 0, lastC: 0, buyQ: 0, sellQ: 0, cogs: 0, salesV: 0, lastBuy: 0, lastSell: 0, noCost: 0
+    q: 0, v: 0, lastC: 0, buyQ: 0, sellQ: 0, cogs: 0, salesV: 0, lastBuy: 0, lastSell: 0, noCost: 0, warehouses: {}
   }));
   const itemMap = new Map();
-  items.forEach((x, i) => { x.q = x.openQty; x.v = r2(x.openQty * x.openCost); x.lastC = x.openCost; if (!itemMap.has(x.code)) itemMap.set(x.code, i); });
+  items.forEach((x, i) => {
+    x.q = x.openQty; x.v = r2(x.openQty * x.openCost); x.lastC = x.openCost;
+    x.warehouses[defaultWh] = { q: x.openQty, v: x.v, lastC: x.openCost };
+    if (!itemMap.has(x.code)) itemMap.set(x.code, i);
+  });
+  const whState = (x, id) => x.warehouses[id] || (x.warehouses[id] = { q: 0, v: 0, lastC: x.lastC || 0 });
   const itemIdx = c => (c && itemMap.has(c) ? itemMap.get(c) : -1);
   const itemRate = i => (i >= 0 && items[i].vat >= 0 ? items[i].vat : st.vatRate);
   const avgCost = i => { const x = items[i]; let a = 0; if (x.q > 0.0000001) a = x.v / x.q; if (a <= 0) a = x.lastC; if (a < 0) a = 0; return a; };
+  const avgCostWh = (i, id) => { const x = items[i], w = whState(x, id); let a = 0; if (w.q > 0.0000001) a = w.v / w.q; if (a <= 0) a = w.lastC || x.lastC; return a < 0 ? 0 : a; };
 
   // ---- parties (runtime copy)
   const parties = (S.parties || []).map(x => ({
@@ -91,6 +102,13 @@ E.build = function (S) {
       nNoParty++;
       addFlag(rec, 'طرف غير موجود في بيانات ' + (pty === T.cust ? 'العملاء' : 'الموردين'));
     }
+    function procStock(r) {
+      const it = itemIdx(r.ic); if (it < 0 || r.q <= 0) return;
+      const x = items[it], from = whState(x, r.from), to = whState(x, r.to);
+      const unit = avgCostWh(it, r.from), value = r2(r.q * unit);
+      from.q -= r.q; from.v -= value; to.q += r.q; to.v += value; to.lastC = unit;
+      R.stockMoves.push({ date: r.date, doc: r.doc, itemCode: r.ic, qty: r.q, fromWarehouseId: r.from, toWarehouseId: r.to, type: T.stockTransfer });
+    }
     return k;
   }
   function addFlag(rec, txt) { rec.flags.push(txt); }
@@ -106,7 +124,7 @@ E.build = function (S) {
     const rec = {
       kind: 'tx', t, src, tp, tc: tcodeOf(tp), date: t.date || '', doc: t.doc || '', ic: t.itemCode || '', in: t.itemName || '',
       q: num(t.qty), cnt: num(t.pieces), pr: num(t.price), dr, cr, desc: t.desc || '', ref: t.row || 0, seq: t.seq || 0, jno: t.jno || 0, flags: [],
-      pt: '', pc: '', pn: '', p: -1, acc: t.acc || ''
+      pt: '',       pc: '', pn: '', p: -1, acc: t.acc || '', warehouseId: whBy.has(t.warehouseId) ? t.warehouseId : defaultWh
     };
     if ((t.mis || (t.amount !== undefined && t.amount !== null && t.amount !== '' && Math.abs(num(t.amount) - (dr + cr)) > 0.005)) && (src === T.sales || src === T.purch)) { nMis++; addFlag(rec, 'الإجمالي لا يساوي المدين/الدائن'); }
     if (src === T.sales || src === T.purch) {
@@ -121,6 +139,12 @@ E.build = function (S) {
       rec.cat = rec.pn;
     } else return;
     recs.push(rec);
+  });
+  (S.stockTransfers || []).forEach(t => {
+    if (!t || !t.itemCode || !num(t.qty) || !whBy.has(t.fromWarehouseId) || !whBy.has(t.toWarehouseId)) return;
+    recs.push({ kind: 'stock', t, src: T.stockTransfer, tp: T.stockTransfer, tc: 10, date: t.date || startDate,
+      doc: t.doc || '', ic: t.itemCode, q: num(t.qty), from: t.fromWarehouseId, to: t.toWarehouseId,
+      seq: t.seq || 0, jno: 0, flags: [] });
   });
   (S.manual || []).forEach(m => {
     const lines = (m.lines || []).filter(l => l.acc && (num(l.dr) !== 0 || num(l.cr) !== 0));
@@ -214,25 +238,25 @@ E.build = function (S) {
     let cost = 0;
     if (src === T.sales) {
       if (tc === 1 && it >= 0 && qty > 0) {
-        const uCost = avgCost(it); cost = r2(qty * uCost);
+        const uCost = avgCostWh(it, r.warehouseId); cost = r2(qty * uCost);
         if (uCost <= 0) { nNoCost++; items[it].noCost++; addFlag(r, 'صنف بدون تكلفة'); }
         addLine(st.accCogs, cost, 0); addLine(st.accInv, 0, cost);
-        const x = items[it]; x.q -= qty; x.v -= cost; x.sellQ += qty; x.salesV += net; x.cogs += cost; x.lastSell = r.pr;
+        const x = items[it], w = whState(x, r.warehouseId); w.q -= qty; w.v -= cost; x.q -= qty; x.v -= cost; x.sellQ += qty; x.salesV += net; x.cogs += cost; x.lastSell = r.pr;
       } else if (tc === 2 && it >= 0 && qty > 0) {
-        const uCost = avgCost(it); cost = r2(qty * uCost);
+        const uCost = avgCostWh(it, r.warehouseId); cost = r2(qty * uCost);
         addLine(st.accInv, cost, 0); addLine(st.accCogs, 0, cost);
-        const x = items[it]; x.q += qty; x.v += cost; x.sellQ -= qty; x.salesV -= net; x.cogs -= cost;
+        const x = items[it], w = whState(x, r.warehouseId); w.q += qty; w.v += cost; x.q += qty; x.v += cost; x.sellQ -= qty; x.salesV -= net; x.cogs -= cost;
         cost = -cost;
       } else if (tc === 5) {
-        if (it >= 0 && qty > 0) { const x = items[it]; x.q += qty; x.v += net; x.buyQ += qty; x.lastC = net / qty; x.lastBuy = r.pr; cost = net; }
+        if (it >= 0 && qty > 0) { const x = items[it], w = whState(x, r.warehouseId); x.q += qty; x.v += net; w.q += qty; w.v += net; x.buyQ += qty; x.lastC = net / qty; w.lastC = x.lastC; x.lastBuy = r.pr; cost = net; }
         else mUntracked += net;
       } else if ((tc === 1 || tc === 2) && it < 0) { nNoItem++; addFlag(r, 'بدون كود صنف'); }
     } else {
       if (tc === 5) {
-        if (it >= 0 && qty > 0) { const x = items[it]; x.q += qty; x.v += net; x.buyQ += qty; x.lastC = net / qty; x.lastBuy = r.pr; cost = net; }
+        if (it >= 0 && qty > 0) { const x = items[it], w = whState(x, r.warehouseId); x.q += qty; x.v += net; w.q += qty; w.v += net; x.buyQ += qty; x.lastC = net / qty; w.lastC = x.lastC; x.lastBuy = r.pr; cost = net; }
         else { mUntracked += net; if (it < 0) addFlag(r, 'شراء بدون كود صنف: مش متتبّع في المخزون'); }
       } else if (tc === 6) {
-        if (it >= 0 && qty > 0) { const x = items[it]; x.q -= qty; x.v -= net; x.buyQ -= qty; cost = -net; }
+        if (it >= 0 && qty > 0) { const x = items[it], w = whState(x, r.warehouseId); x.q -= qty; x.v -= net; w.q -= qty; w.v -= net; x.buyQ -= qty; cost = -net; }
         else mUntracked -= net;
       }
     }
@@ -265,6 +289,14 @@ E.build = function (S) {
     setTx(r, amt, 0, 0, meth, en);
   }
 
+  function procStock(r) {
+    const it = itemIdx(r.ic); if (it < 0 || r.q <= 0) return;
+    const x = items[it], from = whState(x, r.from), to = whState(x, r.to);
+    const unit = avgCostWh(it, r.from), value = r2(r.q * unit);
+    from.q -= r.q; from.v -= value; to.q += r.q; to.v += value; to.lastC = unit;
+    R.stockMoves.push({ date: r.date, doc: r.doc, itemCode: r.ic, qty: r.q, fromWarehouseId: r.from, toWarehouseId: r.to, type: T.stockTransfer });
+  }
+
   function procManual(r) {
     const en = getJno(r);
     beginEntry(r.date, T.manual, r.ref, r.tp || T.manual, r.doc, r.desc, en);
@@ -277,6 +309,7 @@ E.build = function (S) {
 
   recs.forEach(r => {
     if (r.kind === 'man') procManual(r);
+    else if (r.kind === 'stock') procStock(r);
     else if (r.src === T.treas) procTreasury(r);
     else procParty(r);
   });
@@ -293,10 +326,12 @@ E.build = function (S) {
     code: p.code, name: p.name, type: p.type, phone: p.phone, address: p.address, opening: p.open, debit: r2(p.dr), credit: r2(p.cr),
     balance: r2(p.type === T.cust ? p.open + p.dr - p.cr : p.open + p.cr - p.dr), limit: p.limit, creditDays: num(((S.parties || []).find(x => x.code === p.code && x.type === p.type) || {}).creditDays), last: p.last, priceList: p.priceList, count: p.cnt, adhoc: p.adhoc
   }));
+  R.warehouses = warehouses.map(w => ({ id: w.id, name: w.name, active: w.active !== false }));
   R.items = items.map(x => ({
     code: x.code, name: x.name, unit: x.unit, weight: x.weight, openQty: x.openQty, openCost: x.openCost, vat: x.vat >= 0 ? x.vat : '', eta: x.eta, etaType: x.etaType,
     bought: x.buyQ, sold: x.sellQ, onHand: r2(x.q * 1000) / 1000, avgCost: r2(avgCost(items.indexOf(x))), value: r2(x.v), reorder: x.reorder,
-    lastBuy: x.lastBuy, lastSell: x.lastSell, cogs: r2(x.cogs), sales: r2(x.salesV), noCost: x.noCost
+    lastBuy: x.lastBuy, lastSell: x.lastSell, cogs: r2(x.cogs), sales: r2(x.salesV), noCost: x.noCost,
+    warehouses: Object.keys(x.warehouses).map(id => Object.assign({ id, name: (whBy.get(id) || {}).name || id }, x.warehouses[id]))
   }));
   R.docs = docs.map(d => {
     const s = d.s; const disc = s[4]; let typ, gross = 0, paid = 0;

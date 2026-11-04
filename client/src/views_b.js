@@ -123,35 +123,28 @@ APP.acts.partyEdit = b => { const p = APP.S.parties.find(x => x.code === b.datas
 
 /* ---------- items ---------- */
 R_.items = {
-  title: 'الأصناف والمخزون',
+  title: 'الأصناف',
   html() {
-    const inv = APP.R.items, tv = inv.reduce((s, x) => s + x.value, 0);
-    const low = inv.filter(x => x.reorder > 0 && x.onHand <= x.reorder).length;
-    const neg = inv.filter(x => x.onHand < -0.0005).length;
-    const zero = inv.filter(x => Math.abs(x.onHand) < 0.0005).length;
-    return '<div class="sheet">' + APP.sheetHead('الأصناف والمخزون', 'القيمة بمتوسط التكلفة') +
-      '<div class="toolbar">' + APP.searchBox('اسم أو كود الصنف') + '<label class="f">الحالة<select class="in" data-f="st"><option value="">الكل</option><option value="low">وصل لحد الطلب</option><option value="neg">رصيد سالب</option><option value="nocost">بدون تكلفة</option><option value="zero">رصيد صفر</option></select></label>' +
+    const inv = APP.R.items, units = new Set(inv.map(x => x.unit).filter(Boolean));
+    return '<div class="sheet">' + APP.sheetHead('الأصناف', 'بيانات الأصناف والتعريفات') +
+      '<div class="toolbar">' + APP.searchBox('اسم أو كود الصنف') + '<label class="f">الوحدة<select class="in" data-f="unit"><option value="">كل الوحدات</option>' + Array.from(units).sort().map(u => '<option value="' + esc(u) + '"' + (APP.fv('unit', '') === u ? ' selected' : '') + '>' + esc(u) + '</option>').join('') + '</select></label>' +
       '<button class="btn primary" data-act="itemNew">+ صنف جديد</button><button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="الأصناف">تصدير CSV</button></div>' +
-      '<div class="kpis"><div class="kpi"><small>عدد الأصناف</small><b class="n">' + inv.length + '</b></div><div class="kpi"><small>قيمة المخزون</small><b>' + fmt(tv) + '</b></div><div class="kpi"><small>وصل لحد الطلب</small><b class="' + (low ? 'neg' : '') + '">' + low + '</b></div><div class="kpi"><small>رصيد سالب</small><b class="' + (neg ? 'neg' : '') + '">' + neg + '</b></div><div class="kpi"><small>رصيد صفر</small><b>' + zero + '</b></div></div><div class="scroll" id="results">' + this.results() + '</div></div>';
+      '<div class="kpis"><div class="kpi"><small>عدد الأصناف</small><b class="n">' + inv.length + '</b></div><div class="kpi"><small>عدد الوحدات</small><b class="n">' + units.size + '</b></div><div class="kpi"><small>أصناف لها ضريبة</small><b class="n">' + inv.filter(x => x.vat !== '' && x.vat !== undefined).length + '</b></div></div><div class="scroll" id="results">' + this.results() + '</div></div>';
   },
   results() {
-    const q = APP.fv('q', '').trim(), st = APP.fv('st', '');
+    const q = APP.fv('q', '').trim(), unit = APP.fv('unit', '');
     let rows = APP.R.items.filter(x => has(x.name + ' ' + x.code, q));
-    if (st === 'low') rows = rows.filter(x => x.reorder > 0 && x.onHand <= x.reorder); else if (st === 'neg') rows = rows.filter(x => x.onHand < -0.0005); else if (st === 'nocost') rows = rows.filter(x => x.noCost > 0 || x.avgCost <= 0); else if (st === 'zero') rows = rows.filter(x => Math.abs(x.onHand) < 0.0005);
+    if (unit) rows = rows.filter(x => x.unit === unit);
     const pg = APP.paged(rows, 150); const WT = new Map(APP.S.items.map(i => [i.code, num(i.weight)]));
     return APP.table([
       { h: 'الكود', f: x => '<span class="n">' + esc(x.code) + '</span>' },
       { h: 'الصنف', f: x => '<a href="#/itemcard/' + encodeURIComponent(x.code) + '">' + esc(x.name) + '</a>' },
       { h: 'الوحدة', f: x => esc(x.unit) },
       { h: 'وزن الصنف (كجم/لتر للوحدة)', n: 1, f: x => WT.get(x.code) ? '<span class="n">' + APP.fmtq(WT.get(x.code)) + '</span>' : '' },
-      { h: 'الرصيد', n: 1, f: x => '<span class="n' + (x.onHand < -0.0005 ? ' neg' : '') + '">' + APP.fmtq(x.onHand) + '</span>' },
-      { h: 'متوسط التكلفة', n: 1, f: x => nc(x.avgCost) },
-      { h: 'القيمة', n: 1, f: x => nc(x.value), total: x => x.value },
-      { h: 'آخر شراء', n: 1, f: x => x.lastBuy ? nc(x.lastBuy) : '' },
-      { h: 'آخر بيع', n: 1, f: x => x.lastSell ? nc(x.lastSell) : '' },
+      { h: 'الضريبة %', n: 1, f: x => x.vat === '' ? '' : '<span class="n">' + esc(x.vat) + '</span>' },
       { h: 'حد الطلب', n: 1, f: x => x.reorder ? '<span class="n">' + APP.fmtq(x.reorder) + '</span>' : '' },
       { h: '', cls: 'act', f: x => '<a class="btn s" href="#/itemcard/' + encodeURIComponent(x.code) + '">كارت الصنف</a> <button class="btn s" data-act="itemEdit" data-c="' + esc(x.code) + '">تعديل</button>' }
-    ], pg.rows, { id: 'rpt', totals: rows.length <= 150, empty: 'مفيش أصناف مطابقة.' }) + pg.html;
+    ], pg.rows, { id: 'rpt', empty: 'مفيش أصناف مطابقة.' }) + pg.html;
   }
 };
 function nextItemCode() { let mx = 0; const set = new Set(APP.S.items.map(x => x.code)); APP.S.items.forEach(x => { const m = /^I-(\d+)$/.exec(x.code); if (m) mx = Math.max(mx, parseInt(m[1], 10)); }); let c; do { mx++; c = 'I-' + String(mx).padStart(3, '0'); } while (set.has(c)); return c; }
@@ -183,13 +176,56 @@ R_.itemcard = {
     const IN = new Set([T.ret, T.buy]), OUT = new Set([T.sale, T.retBuy]);
     const txs = APP.S.transactions.filter(t => t.itemCode === code && (IN.has(t.type) || OUT.has(t.type))).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq));
     let run = x.openQty; const rows = [{ _cls: 'grp', d: '', doc: '', tp: 'رصيد أول المدة', pn: '', qin: x.openQty, qout: 0, pr: x.openCost, bal: run }];
-    txs.forEach(t => { const i = IN.has(t.type); run += i ? t.qty : -t.qty; rows.push({ d: t.date, doc: t.doc, tp: t.type, pn: t.partyName, qin: i ? t.qty : 0, qout: i ? 0 : t.qty, pr: t.price, bal: run }); });
+    txs.forEach(t => { const i = IN.has(t.type); run += i ? t.qty : -t.qty; rows.push({ d: t.date, doc: t.doc, tp: t.type, pn: t.partyName, wh: t.warehouseId, qin: i ? t.qty : 0, qout: i ? 0 : t.qty, pr: t.price, bal: run }); });
+    (APP.S.stockTransfers || []).filter(t => t.itemCode === code).forEach(t => rows.push({ d: t.date, doc: t.doc, tp: T.stockTransfer, pn: '', wh: t.fromWarehouseId + ' → ' + t.toWarehouseId, qin: 0, qout: t.qty, pr: 0, bal: run }));
     return '<div class="sheet">' + APP.sheetHead('كارت الصنف', x.code + ' - ' + x.name) +
       '<div class="toolbar noprint"><a class="btn" href="#/items">رجوع للأصناف</a><button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="كارت_' + esc(code) + '">تصدير CSV</button></div>' +
-      '<div class="kpis" style="margin-bottom:14px"><div class="kpi"><small>الرصيد</small><b>' + APP.fmtq(x.onHand) + ' ' + esc(x.unit) + '</b></div><div class="kpi"><small>متوسط التكلفة</small><b>' + fmt(x.avgCost) + '</b></div><div class="kpi"><small>قيمة المخزون</small><b>' + fmt(x.value) + '</b></div><div class="kpi"><small>إجمالي المبيعات</small><b>' + fmt(x.sales) + '</b></div><div class="kpi"><small>تكلفة المبيعات</small><b>' + fmt(x.cogs) + '</b></div></div>' +
-      '<div class="scroll">' + APP.table([{ h: 'التاريخ', f: r => '<span class="n">' + r.d + '</span>' }, { h: 'المستند', f: r => r.doc ? '<a href="#/doc/' + encodeURIComponent(r.doc) + '">' + esc(r.doc) + '</a>' : '' }, { h: 'البيان', f: r => esc(r.tp) }, { h: 'الطرف', f: r => esc(r.pn) }, { h: 'وارد', n: 1, f: r => r.qin ? '<span class="n">' + APP.fmtq(r.qin) + '</span>' : '' }, { h: 'صادر', n: 1, f: r => r.qout ? '<span class="n">' + APP.fmtq(r.qout) + '</span>' : '' }, { h: 'السعر', n: 1, f: r => r.pr ? nc(r.pr) : '' }, { h: 'الرصيد', n: 1, f: r => '<span class="n' + (r.bal < -0.0005 ? ' neg' : '') + '">' + APP.fmtq(r.bal) + '</span>' }], rows, { id: 'rpt' }) + '</div></div>';
+      '<div class="kpis" style="margin-bottom:14px"><div class="kpi"><small>الرصيد</small><b>' + APP.fmtq(x.onHand) + ' ' + esc(x.unit) + '</b></div><div class="kpi"><small>حسب المخزن</small><b class="sm">' + (x.warehouses || []).map(w => esc(w.name) + ': ' + APP.fmtq(w.q)).join(' — ') + '</b></div><div class="kpi"><small>متوسط التكلفة</small><b>' + fmt(x.avgCost) + '</b></div><div class="kpi"><small>قيمة المخزون</small><b>' + fmt(x.value) + '</b></div><div class="kpi"><small>إجمالي المبيعات</small><b>' + fmt(x.sales) + '</b></div><div class="kpi"><small>تكلفة المبيعات</small><b>' + fmt(x.cogs) + '</b></div></div>' +
+      '<div class="scroll">' + APP.table([{ h: 'التاريخ', f: r => '<span class="n">' + r.d + '</span>' }, { h: 'المستند', f: r => r.doc ? '<a href="#/doc/' + encodeURIComponent(r.doc) + '">' + esc(r.doc) + '</a>' : '' }, { h: 'البيان', f: r => esc(r.tp) }, { h: 'المخزن', f: r => esc(r.wh || '') }, { h: 'الطرف', f: r => esc(r.pn) }, { h: 'وارد', n: 1, f: r => r.qin ? '<span class="n">' + APP.fmtq(r.qin) + '</span>' : '' }, { h: 'صادر', n: 1, f: r => r.qout ? '<span class="n">' + APP.fmtq(r.qout) + '</span>' : '' }, { h: 'السعر', n: 1, f: r => r.pr ? nc(r.pr) : '' }, { h: 'الرصيد', n: 1, f: r => '<span class="n' + (r.bal < -0.0005 ? ' neg' : '') + '">' + APP.fmtq(r.bal) + '</span>' }], rows, { id: 'rpt' }) + '</div></div>';
   }
 };
+
+R_.warehouse = {
+  title: 'المخازن',
+  html() {
+    const inv = APP.R.items;
+    const total = inv.reduce((s, x) => s + x.value, 0);
+    const low = inv.filter(x => x.reorder > 0 && x.onHand <= x.reorder).length;
+    const neg = inv.filter(x => x.onHand < -0.0005).length;
+    return '<div class="sheet">' + APP.sheetHead('المخازن', 'الأرصدة والقيمة والتنبيهات') +
+      '<div class="toolbar"><button class="btn primary" data-act="warehouseNew">+ مخزن جديد</button><a class="btn" href="#/stocktransfer">تحويل بين المخازن</a>' + APP.searchBox('اسم أو كود الصنف') +
+      '<label class="f">الحالة<select class="in" data-f="st"><option value="">كل الأصناف</option><option value="low">وصل لحد الطلب</option><option value="neg">رصيد سالب</option><option value="zero">رصيد صفر</option></select></label>' +
+      '<button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="المخازن">تصدير CSV</button></div>' +
+      '<div class="kpis"><div class="kpi"><small>المخازن</small><b class="n">' + APP.S.warehouses.filter(w => w.active !== false).length + '</b></div><div class="kpi"><small>قيمة المخزون</small><b>' + fmt(total) + '</b></div><div class="kpi"><small>عدد الأصناف</small><b class="n">' + inv.length + '</b></div><div class="kpi"><small>تحت حد الطلب</small><b class="' + (low ? 'neg' : '') + '">' + low + '</b></div><div class="kpi"><small>أرصدة سالبة</small><b class="' + (neg ? 'neg' : '') + '">' + neg + '</b></div></div>' +
+      '<div class="panel"><h2>إدارة المخازن</h2><table class="grid"><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th></th></tr></thead><tbody>' + APP.S.warehouses.map(w => '<tr><td class="n">' + esc(w.id) + '</td><td>' + esc(w.name) + (w.id === APP.S.settings.defaultWarehouseId ? ' <span class="chip ok">الافتراضي</span>' : '') + '</td><td>' + (w.active === false ? 'غير نشط' : 'نشط') + '</td><td><button class="btn s" data-act="warehouseEdit" data-id="' + esc(w.id) + '">تعديل</button></td></tr>').join('') + '</tbody></table></div>' +
+      '<div class="scroll" id="results">' + this.results() + '</div></div>';
+  },
+  results() {
+    const q = APP.fv('q', '').trim(), st = APP.fv('st', '');
+    let rows = APP.R.items.filter(x => has(x.name + ' ' + x.code, q));
+    if (st === 'low') rows = rows.filter(x => x.reorder > 0 && x.onHand <= x.reorder);
+    else if (st === 'neg') rows = rows.filter(x => x.onHand < -0.0005);
+    else if (st === 'zero') rows = rows.filter(x => Math.abs(x.onHand) < 0.0005);
+    rows.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+    return APP.table([
+      { h: 'الكود', f: x => '<span class="n">' + esc(x.code) + '</span>' },
+      { h: 'الصنف', f: x => '<a href="#/itemcard/' + encodeURIComponent(x.code) + '">' + esc(x.name) + '</a>' },
+      { h: 'الوحدة', f: x => esc(x.unit) },
+      { h: 'الرصيد', n: 1, f: x => '<span class="n' + (x.onHand < -0.0005 ? ' neg' : '') + '">' + APP.fmtq(x.onHand) + '</span>' },
+      { h: 'متوسط التكلفة', n: 1, f: x => nc(x.avgCost) },
+      { h: 'قيمة المخزون', n: 1, f: x => nc(x.value), total: x => x.value },
+      { h: 'حد الطلب', n: 1, f: x => x.reorder ? '<span class="n">' + APP.fmtq(x.reorder) + '</span>' : '' },
+      { h: '', cls: 'act', f: x => '<a class="btn s" href="#/itemcard/' + encodeURIComponent(x.code) + '">كارت الصنف</a>' }
+    ], rows, { id: 'rpt', totals: true, empty: 'لا توجد أصناف مطابقة.' });
+  }
+};
+function warehouseForm(w) {
+  const isNew = !w, x = w || { id: 'wh-' + (APP.S.warehouses.length + 1), name: '', active: true };
+  APP.modal('<h3>' + (isNew ? 'مخزن جديد' : 'تعديل المخزن') + '</h3><div class="mbody"><label class="f">الكود<input class="in n" id="wfId" value="' + esc(x.id) + '"' + (!isNew ? ' readonly' : '') + '></label><label class="f">اسم المخزن<input class="in" id="wfName" value="' + esc(x.name) + '"></label><div id="wfErr" class="err"></div></div><div class="mfoot"><button class="btn primary" id="wfOk">حفظ</button><button class="btn" data-act="mclose">إلغاء</button></div>');
+  $('#wfOk').onclick = () => { const id = $('#wfId').value.trim(), name = $('#wfName').value.trim(), er = $('#wfErr'); if (!id || !name) { er.textContent = 'الكود والاسم مطلوبان.'; return; } if (isNew && APP.S.warehouses.some(y => y.id === id)) { er.textContent = 'الكود مستخدم.'; return; } if (isNew) APP.S.warehouses.push({ id, name, active: true }); else w.name = name; APP.mclose(); APP.commit('تم حفظ المخزن.'); };
+}
+APP.acts.warehouseNew = () => warehouseForm(null);
+APP.acts.warehouseEdit = b => { const w = APP.S.warehouses.find(x => x.id === b.dataset.id); if (w) warehouseForm(w); };
 
 R_.stockmoves = {
   title: 'حركة المخزون',
@@ -198,24 +234,27 @@ R_.stockmoves = {
     return '<div class="sheet">' + APP.sheetHead('حركة المخزون', 'الوارد والصادر والرصيد الجاري') +
       '<div class="toolbar">' + APP.dateFilter(from, to) +
       '<label class="f grow">الصنف<select class="in" data-f="item"><option value="">كل الأصناف</option>' +
-      APP.S.items.map(x => '<option value="' + esc(x.code) + '"' + (APP.fv('item', '') === x.code ? ' selected' : '') + '>' + esc(x.code + ' - ' + x.name) + '</option>').join('') +
+      APP.S.items.map(x => '<option value="' + esc(x.code) + '"' + (APP.fv('item', '') === x.code ? ' selected' : '') + '>' + esc(x.code + ' - ' + x.name) + '</option>').join('') + '</select></label><label class="f">المخزن<select class="in" data-f="warehouse"><option value="">كل المخازن</option>' + APP.S.warehouses.map(w => '<option value="' + esc(w.id) + '"' + (APP.fv('warehouse', '') === w.id ? ' selected' : '') + '>' + esc(w.name) + '</option>').join('') +
       '</select></label><button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="حركة المخزون">تصدير CSV</button></div>' +
       '<div class="scroll" id="results">' + this.results() + '</div></div>';
   },
   results() {
-    const from = APP.fv('from', APP.S.settings.startDate), to = APP.fv('to', APP.today()), code = APP.fv('item', '');
+    const from = APP.fv('from', APP.S.settings.startDate), to = APP.fv('to', APP.today()), code = APP.fv('item', ''), wh = APP.fv('warehouse', '');
     const inTypes = new Set([T.ret, T.buy]), outTypes = new Set([T.sale, T.retBuy]);
     const rows = [];
     APP.S.items.filter(x => !code || x.code === code).forEach(item => {
-      let run = item.openQty;
-      APP.S.transactions.filter(t => t.itemCode === item.code && (inTypes.has(t.type) || outTypes.has(t.type)) && t.date < from).forEach(t => { run += inTypes.has(t.type) ? num(t.qty) : -num(t.qty); });
-      APP.S.transactions.filter(t => t.itemCode === item.code && (inTypes.has(t.type) || outTypes.has(t.type)) && t.date >= from && t.date <= to)
+      const opening = wh ? ((item.warehouses || []).find(w => w.id === wh) || {}).q || 0 : item.openQty;
+      let run = opening;
+      APP.S.transactions.filter(t => t.itemCode === item.code && (!wh || (t.warehouseId || APP.S.settings.defaultWarehouseId) === wh) && (inTypes.has(t.type) || outTypes.has(t.type)) && t.date < from).forEach(t => { run += inTypes.has(t.type) ? num(t.qty) : -num(t.qty); });
+      APP.S.transactions.filter(t => t.itemCode === item.code && (!wh || (t.warehouseId || APP.S.settings.defaultWarehouseId) === wh) && (inTypes.has(t.type) || outTypes.has(t.type)) && t.date >= from && t.date <= to)
         .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq))
         .forEach(t => {
           const incoming = inTypes.has(t.type), qty = num(t.qty);
           run += incoming ? qty : -qty;
-          rows.push({ date: t.date, doc: t.doc, item, type: t.type, party: t.partyName, in: incoming ? qty : 0, out: incoming ? 0 : qty, bal: run });
+          rows.push({ date: t.date, doc: t.doc, item, type: t.type, party: t.partyName, warehouseId: t.warehouseId, in: incoming ? qty : 0, out: incoming ? 0 : qty, bal: run });
         });
+      APP.S.stockTransfers.filter(t => t.itemCode === item.code && (!wh || t.fromWarehouseId === wh || t.toWarehouseId === wh) && t.date >= from && t.date <= to)
+        .forEach(t => rows.push({ date: t.date, doc: t.doc, item, type: T.stockTransfer, party: '', warehouseId: t.toWarehouseId, in: t.toWarehouseId === wh || !wh ? num(t.qty) : 0, out: t.fromWarehouseId === wh ? num(t.qty) : 0, bal: run }));
     });
     return APP.table([
       { h: 'التاريخ', f: r => '<span class="n">' + r.date + '</span>' },
@@ -223,6 +262,7 @@ R_.stockmoves = {
       { h: 'الصنف', f: r => '<a href="#/itemcard/' + encodeURIComponent(r.item.code) + '">' + esc(r.item.name) + '</a>' },
       { h: 'النوع', f: r => esc(r.type) },
       { h: 'الطرف', f: r => esc(r.party || '') },
+      { h: 'المخزن', f: r => esc(((APP.S.warehouses.find(w => w.id === r.warehouseId) || {}).name || '')) },
       { h: 'وارد', n: 1, f: r => r.in ? '<span class="n">' + APP.fmtq(r.in) + '</span>' : '', total: r => r.in },
       { h: 'صادر', n: 1, f: r => r.out ? '<span class="n">' + APP.fmtq(r.out) + '</span>' : '', total: r => r.out },
       { h: 'الرصيد الجاري', n: 1, f: r => '<span class="n' + (r.bal < -0.0005 ? ' neg' : '') + '">' + APP.fmtq(r.bal) + '</span>' }
@@ -233,9 +273,9 @@ R_.stockmoves = {
 /* ---------- chart of accounts ---------- */
 const ACC_TYPES = ['أصول', 'خصوم', 'حقوق ملكية', 'إيرادات', 'مصروفات'];
 R_.coa = {
-  title: 'دليل الحسابات',
+  title: 'شجرة الحسابات',
   html() {
-    return '<div class="sheet">' + APP.sheetHead('دليل الحسابات', 'الأرصدة حتى اليوم') +
+    return '<div class="sheet account-sheet">' + APP.sheetHead('شجرة الحسابات', 'الأرصدة حتى اليوم') +
       '<div class="toolbar">' + APP.searchBox('كود أو اسم الحساب') + '<button class="btn primary" data-act="accNew">+ حساب جديد</button><button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="دليل_الحسابات">تصدير CSV</button></div><div class="scroll" id="results">' + this.results() + '</div></div>';
   },
   results() {

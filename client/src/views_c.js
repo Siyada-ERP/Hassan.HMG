@@ -55,7 +55,7 @@ function loadDoc(kind, doc) {
   const p = { edit: doc, date: txs[0].date, doc, lines: [], disc: 0, paid: 0, payAcc: '', desc: '' };
   txs.forEach(t => {
     if (K.k === 'inv') {
-      if (t.type === K.lt) { p.lines.push({ item: t.itemCode ? t.itemCode + ' - ' + t.itemName : '', pcs: t.pieces, qty: t.qty, price: t.price }); p.party = t.partyCode + ' - ' + t.partyName; }
+      if (t.type === K.lt) { p.lines.push({ item: t.itemCode ? t.itemCode + ' - ' + t.itemName : '', pcs: t.pieces, qty: t.qty, price: t.price }); p.party = t.partyCode + ' - ' + t.partyName; p.warehouseId = t.warehouseId; }
       else if (K.disc && t.type === K.disc.tp) p.disc += t.debit + t.credit;
       else if (K.pay && t.type === K.pay.tp) { p.paid += t.debit + t.credit; p.payAcc = t.acc; if (!p.party) p.party = t.partyCode + ' - ' + t.partyName; }
       if (t.desc) p.desc = t.desc;
@@ -73,10 +73,11 @@ function lineRow(K, l, i) {
 }
 function invoiceHtml(kind, arg) {
   const K = KINDS[kind]; const pre = arg ? loadDoc(kind, arg) : null; if (arg && !pre) return '<div class="sheet"><p>المستند ' + esc(arg) + ' مش موجود.</p></div>';
-  const p = pre || { date: APP.UI.keepDate || APP.today(), doc: nextDoc(K.pre), lines: [{}, {}, {}], disc: '', paid: '', payAcc: '', desc: '' };
+  const p = pre || { date: APP.UI.keepDate || APP.today(), doc: nextDoc(K.pre), lines: [{}, {}, {}], disc: '', paid: '', payAcc: '', desc: '', warehouseId: APP.S.settings.defaultWarehouseId };
   if (p.lines.length < 1) p.lines.push({});
   let h = '<div class="sheet doc" id="frm" data-kind="' + kind + '" data-edit="' + esc(p.edit || '') + '">' + APP.sheetHead(K.title + (p.edit ? ' (تعديل)' : ''), p.doc) + partyDL(K.pty) + itemDL() +
     '<div class="frow"><label class="f">التاريخ <span class="req">*</span><input class="in" type="date" id="fD" value="' + esc(p.date) + '"></label><label class="f">رقم المستند<input class="in" id="fNo" value="' + esc(p.doc) + '"></label>' +
+    (APP.S.settings.warehouseSelection !== false ? '<label class="f">المخزن<select class="in" id="fWarehouse">' + APP.S.warehouses.filter(w => w.active !== false).map(w => '<option value="' + esc(w.id) + '"' + (w.id === (p.warehouseId || APP.S.settings.defaultWarehouseId) ? ' selected' : '') + '>' + esc(w.name) + '</option>').join('') + '</select></label>' : '') +
     '<label class="f" style="grid-column:span 2">' + K.partyLbl + ' <span class="req">*</span><input class="in" id="fP" list="dlParty" data-on="party" value="' + esc(p.party || '') + '" placeholder="اكتب كود أو اسم ' + K.partyLbl + '" autocomplete="off"><span class="hint" id="fPh"></span></label></div>' +
     '<table class="lines"><thead><tr><th></th><th>الصنف</th><th>الكمية</th><th>العدد</th><th>السعر/الكمية</th><th>الإجمالي</th><th></th></tr></thead><tbody id="lnBody">' + p.lines.map((l, i) => lineRow(K, l, i)).join('') + '</tbody></table>' +
     '<button class="btn s" data-act="lnAdd">+ سطر</button><div class="sumbox">' +
@@ -143,7 +144,8 @@ function saveInvoice(again) {
   if (!APP.guard(date)) return; if (edit) { const old = APP.S.transactions.filter(t => t.doc === edit); if (old.some(t => !APP.guard(t.date))) return; }
   const finish = () => {
     if (edit) APP.S.transactions = APP.S.transactions.filter(t => t.doc !== edit);
-    const base = { date, source: K.src, doc, partyType: K.pty, partyCode: p.code, partyName: p.name }; const note = $('#fDesc').value.trim(); const out = [];
+    const warehouseId = $('#fWarehouse') ? $('#fWarehouse').value : APP.S.settings.defaultWarehouseId;
+    const base = { date, source: K.src, doc, partyType: K.pty, partyCode: p.code, partyName: p.name, warehouseId }; const note = $('#fDesc').value.trim(); const out = [];
     lines.forEach(l => out.push(newTx(Object.assign({}, base, { type: K.lt, side: K.side, amount: l.amt, itemCode: l.x.code, itemName: l.x.name, qty: l.q, pieces: l.pc, price: l.pr, desc: note }))));
     if (disc > 0) out.push(newTx(Object.assign({}, base, { type: K.disc.tp, side: K.disc.side, amount: disc, desc: note })));
     if (paid > 0) out.push(newTx(Object.assign({}, base, { type: K.pay.tp, side: K.pay.side, amount: paid, acc: $('#fAcc').value, desc: note })));
@@ -226,6 +228,26 @@ APP.acts.saveTransfer = () => {
   if (!APP.guard(date)) return; const d = $('#tDesc').value.trim() || 'تحويل بين الحسابات';
   APP.S.manual.push({ jno: 0, date, type: 'تحويل', doc, desc: d, seq: 4e6 + APP.nextId('man'), lines: [{ acc: to, dr: amt, cr: 0, desc: d }, { acc: from, dr: 0, cr: amt, desc: d }] }); bumpDoc(doc); APP.UI.keepDate = date;
   APP.commit('تم حفظ التحويل ' + doc + '.', { norender: true }); APP.go('journal');
+};
+
+R_.stocktransfer = {
+  title: 'تحويل بين المخازن',
+  html() {
+    const p = { date: APP.UI.keepDate || APP.today(), doc: nextDoc('ST-') };
+    const wh = APP.S.warehouses.filter(w => w.active !== false);
+    return '<div class="sheet doc" id="frm">' + APP.sheetHead('تحويل بين المخازن', p.doc) + itemDL() +
+      '<div class="frow"><label class="f">التاريخ <span class="req">*</span><input class="in" type="date" id="stDate" value="' + p.date + '"></label><label class="f">رقم المستند<input class="in" id="stDoc" value="' + p.doc + '"></label></div>' +
+      '<div class="frow"><label class="f">من مخزن<select class="in" id="stFrom">' + wh.map(w => '<option value="' + esc(w.id) + '">' + esc(w.name) + '</option>').join('') + '</select></label><label class="f">إلى مخزن<select class="in" id="stTo">' + wh.map((w, i) => '<option value="' + esc(w.id) + '"' + (i === 1 ? ' selected' : '') + '>' + esc(w.name) + '</option>').join('') + '</select></label></div>' +
+      '<div class="frow"><label class="f">الصنف<input class="in" id="stItem" list="dlItem" placeholder="كود أو اسم الصنف"></label><label class="f">الكمية<input class="in n" id="stQty" inputmode="decimal"></label></div><label class="f">البيان<input class="in" id="stDesc"></label><div id="stErr" class="err"></div><div class="toolbar"><button class="btn primary" data-act="saveStockTransfer">حفظ التحويل</button></div></div>';
+  }
+};
+APP.acts.saveStockTransfer = () => {
+  const er = $('#stErr'), date = $('#stDate').value, doc = $('#stDoc').value.trim(), from = $('#stFrom').value, to = $('#stTo').value, item = findItem($('#stItem').value), qty = parseFloat($('#stQty').value);
+  er.textContent = ''; if (!date || !doc || !item || !(qty > 0) || from === to) { er.textContent = 'اكتب البيانات واختر صنفًا ومخزنين مختلفين.'; return; }
+  if (APP.S.transactions.some(t => t.doc === doc) || APP.S.manual.some(m => m.doc === doc) || APP.S.stockTransfers.some(t => t.doc === doc)) { er.textContent = 'رقم المستند مستخدم قبل كده.'; return; }
+  if (!APP.guard(date)) return;
+  APP.S.stockTransfers.push({ id: APP.nextId('tx'), date, doc, itemCode: item.code, itemName: item.name, qty, fromWarehouseId: from, toWarehouseId: to, desc: $('#stDesc').value.trim(), seq: Date.now() });
+  APP.commit('تم حفظ التحويل ' + doc + '.', { norender: true }); APP.go('stockmoves');
 };
 
 /* ---------- manual journal entry ---------- */

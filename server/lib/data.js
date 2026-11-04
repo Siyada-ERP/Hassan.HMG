@@ -2,7 +2,7 @@
 /* بيانات الشركات: مخزن سجلات بنسخ (rev) مع كشف التعارض وتوزيع الأرقام */
 const { P, tx, now } = require('./db');
 
-const COLLS = new Set(['settings', 'mapping', 'coa', 'parties', 'items', 'prices', 'tx', 'man', 'closings', 'emps']);
+const COLLS = new Set(['settings', 'mapping', 'coa', 'parties', 'items', 'prices', 'tx', 'man', 'closings', 'emps', 'warehouses', 'stockTransfers']);
 const MAX_ROW = 400 * 1024, MAX_SETTINGS = 2 * 1024 * 1024;
 class HttpError extends Error { constructor(status, msg, extra) { super(msg); this.status = status; this.extra = extra; } }
 const bad = (m) => new HttpError(400, m);

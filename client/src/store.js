@@ -47,7 +47,8 @@ APP.defaultMapping = () => ({
 });
 APP.newState = function (company) {
   const s = E.defaultSettings(); if (company) Object.assign(s, company);
-  return { ver: 1, settings: s, coa: APP.defaultCOA(), mapping: APP.defaultMapping(), parties: [], items: [], transactions: [], manual: [], meta: { nextJno: 2, nextTxId: 1, nextManual: 1, docCounters: {}, nextRow: {}, changes: 0, lastBackup: '' } };
+  return { ver: 2, settings: s, coa: APP.defaultCOA(), mapping: APP.defaultMapping(), parties: [], items: [], transactions: [], stockTransfers: [],
+    warehouses: [{ id: 'main', name: 'المخزن الرئيسي', active: true }], manual: [], meta: { nextJno: 2, nextTxId: 1, nextManual: 1, docCounters: {}, nextRow: {}, changes: 0, lastBackup: '' } };
 };
 
 /* ---------- persistence ---------- */
@@ -112,6 +113,15 @@ APP.normalizeState = function (S) {
   const d = APP.newState();
   S.settings = Object.assign(E.defaultSettings(), S.settings || {});
   ['coa', 'parties', 'items', 'transactions', 'manual'].forEach(k => { if (!Array.isArray(S[k])) S[k] = []; });
+  if (!Array.isArray(S.warehouses) || !S.warehouses.length) S.warehouses = [{ id: 'main', name: 'المخزن الرئيسي', active: true }];
+  const seenWh = new Set(), wh = [];
+  S.warehouses.forEach((w, i) => { const id = String(w.id || ('wh-' + (i + 1))); if (seenWh.has(id)) return; seenWh.add(id); wh.push({ id, name: String(w.name || (id === 'main' ? 'المخزن الرئيسي' : id)), active: w.active !== false }); });
+  if (!seenWh.has('main')) wh.unshift({ id: 'main', name: 'المخزن الرئيسي', active: true });
+  S.warehouses = wh;
+  if (!S.settings.defaultWarehouseId || !seenWh.has(S.settings.defaultWarehouseId)) S.settings.defaultWarehouseId = 'main';
+  if (!Array.isArray(S.stockTransfers)) S.stockTransfers = [];
+  S.transactions.forEach(t => { if (!t.warehouseId || !seenWh.has(t.warehouseId)) t.warehouseId = S.settings.defaultWarehouseId || 'main'; });
+  S.stockTransfers.forEach(t => { if (!t.fromWarehouseId || !seenWh.has(t.fromWarehouseId)) t.fromWarehouseId = S.settings.defaultWarehouseId || 'main'; if (!t.toWarehouseId || !seenWh.has(t.toWarehouseId)) t.toWarehouseId = S.settings.defaultWarehouseId || 'main'; });
   const known = new Set(S.coa.map(a => a.code));
   STANDARD_ADDITIONS.forEach(a => { if (!known.has(a.code)) S.coa.push(Object.assign({}, a)); });
   S.mapping = Object.assign({ types: [], methods: [], expenses: [], incomes: [] }, S.mapping || {});

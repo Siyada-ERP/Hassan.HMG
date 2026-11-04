@@ -49,14 +49,14 @@ function recs(S) {
   const m = new Map();
   const put = (coll, o, key) => { key = key || keyOf(coll, o); m.set(coll + '|' + key, { coll, key, data: o, sig: sigOf(coll, o) }); };
   if (S.settings) put('settings', S.settings, 'main'); put('mapping', S.mapping, 'main');
-  S.coa.forEach(a => put('coa', a)); S.parties.forEach(p => put('parties', p)); S.items.forEach(i => put('items', i)); (S.priceLists || []).forEach(l => put('prices', l)); (S.employees || []).forEach(e => put('emps', e));
+  S.coa.forEach(a => put('coa', a)); S.parties.forEach(p => put('parties', p)); S.items.forEach(i => put('items', i)); (S.warehouses || []).forEach(w => put('warehouses', w, w.id)); (S.stockTransfers || []).forEach(t => put('stockTransfers', t, t.id || t.doc)); (S.priceLists || []).forEach(l => put('prices', l)); (S.employees || []).forEach(e => put('emps', e));
   S.transactions.forEach(t => put('tx', t));
   const used = new Set();
   S.manual.forEach(x => { if (!x.uid || used.has(x.uid)) { let u = 'N' + (x.seq || 0), i = 0; while (used.has(u)) u = 'N' + (x.seq || 0) + '_' + (++i); x.uid = u; } used.add(x.uid); put('man', x); });
   const cl = S.meta.closings || []; if (cl.length || shadow.has('closings|main')) put('closings', { list: cl }, 'main');
   return m;
 }
-function arrOf(S, coll) { return coll === 'coa' ? S.coa : coll === 'parties' ? S.parties : coll === 'items' ? S.items : coll === 'prices' ? S.priceLists : coll === 'emps' ? (S.employees || (S.employees = [])) : coll === 'tx' ? S.transactions : coll === 'man' ? S.manual : null; }
+function arrOf(S, coll) { return coll === 'coa' ? S.coa : coll === 'parties' ? S.parties : coll === 'items' ? S.items : coll === 'warehouses' ? S.warehouses : coll === 'stockTransfers' ? S.stockTransfers : coll === 'prices' ? S.priceLists : coll === 'emps' ? (S.employees || (S.employees = [])) : coll === 'tx' ? S.transactions : coll === 'man' ? S.manual : null; }
 function diff() {
   const S = APP.S, cur = recs(S), ops = [], sent = [];
   const known = new Set(); shadow.forEach(sh => { if (sh.doc) known.add(sh.doc); });
@@ -95,7 +95,7 @@ function mergeCounters(K) {
 }
 function buildState(snap) {
   const R = snap.records, d = c => (R[c] || []).map(x => x.data);
-  const S = { ver: 1, settings: (R.settings[0] || {}).data, coa: d('coa'), mapping: (R.mapping[0] || {}).data, parties: d('parties'), items: d('items'), priceLists: d('prices'), employees: d('emps'), transactions: d('tx'), manual: d('man'), meta: {} };
+  const S = { ver: 1, settings: (R.settings[0] || {}).data, coa: d('coa'), mapping: (R.mapping[0] || {}).data, parties: d('parties'), items: d('items'), warehouses: d('warehouses'), stockTransfers: d('stockTransfers'), priceLists: d('prices'), employees: d('emps'), transactions: d('tx'), manual: d('man'), meta: {} };
   const K = snap.counters || {};
   S.meta = { nextJno: K.jno || 2, nextTxId: K.tx || 1, nextManual: K.man || 1, docCounters: Object.assign({}, K.doc), nextRow: Object.assign({}, K.nextRow), closings: ((R.closings[0] || {}).data || {}).list || [], changes: 0, lastBackup: '' };
   APP.normalizeState(S);
@@ -106,7 +106,7 @@ function buildState(snap) {
   }); });
   return S;
 }
-net.COLLS = ['settings', 'mapping', 'coa', 'parties', 'items', 'prices', 'emps', 'tx', 'man', 'closings'];
+net.COLLS = ['settings', 'mapping', 'coa', 'parties', 'items', 'warehouses', 'stockTransfers', 'prices', 'emps', 'tx', 'man', 'closings'];
 function rebuildEngine() { if (!APP.S) return; try { APP.R = E.build(APP.S); APP.index(); } catch (e) { console.error(e); } }
 async function loadSnapshot() {
   const snap = await api('GET', '/api/c/' + net.cid + '/snapshot', null, { timeout: 120000 });
@@ -144,7 +144,7 @@ APP.navFilter = function (menu) {
   out.push(['الحساب', items, { end: true }]);
   return out;
 };
-const WRITE = new Set(['sale', 'salret', 'purchase', 'purret', 'receipt', 'payment', 'expense', 'income', 'transfer', 'manual', 'closing', 'mapping', 'import', 'empadv', 'payroll']);
+const WRITE = new Set(['sale', 'salret', 'purchase', 'purret', 'receipt', 'payment', 'expense', 'income', 'transfer', 'stocktransfer', 'manual', 'closing', 'mapping', 'import', 'empadv', 'payroll']);
 const FORM_ROUTES = new Set([...WRITE, 'settings', 'prices', 'backup']);
 APP.guardRoute = r => {
   if (!net.on) return true;

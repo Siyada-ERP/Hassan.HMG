@@ -54,8 +54,8 @@ function alertsPanel() {
     blk('عملاء عليهم فواتير مستحقة', a.dueCustomers, dl, '#/aging') +
     blk('موردون لهم مستحقات متأخرة', a.dueSuppliers, dl, '#/supplieraging') +
     blk('عملاء بدون تحصيل من ' + a.days + ' يوم', a.stale, p => pl(p) + '<span class="n">' + fmt(p.balance) + '</span></li>', '#/customers') +
-    blk('أصناف وصلت حد الطلب', a.low, x => il(x) + '<span class="n">' + APP.fmtq(x.onHand) + '</span></li>', '#/items') +
-    blk('أصناف رصيدها سالب', a.neg, x => il(x) + '<span class="n neg">' + APP.fmtq(x.onHand) + '</span></li>', '#/items') + '</div></div>';
+    blk('أصناف وصلت حد الطلب', a.low, x => il(x) + '<span class="n">' + APP.fmtq(x.onHand) + '</span></li>', '#/warehouse') +
+    blk('أصناف رصيدها سالب', a.neg, x => il(x) + '<span class="n neg">' + APP.fmtq(x.onHand) + '</span></li>', '#/warehouse') + '</div></div>';
 }
 R_.dashboard = {
   title: 'لوحة التحكم',
@@ -151,21 +151,25 @@ R_.settings = {
   title: 'إعدادات الشركة',
   html() {
     const s = APP.S.settings;
-    let h = '<div class="sheet doc"><div class="sh"><div class="t"><div class="co">' + esc(s.company) + '</div><div class="ti">إعدادات الشركة</div></div></div>' +
+    let h = '<div class="sheet doc settings-sheet"><div class="sh"><div class="t"><div class="co">' + esc(s.company) + '</div><div class="ti">إعدادات المشروع</div></div></div>' +
+      '<div class="settings-tabs" role="tablist"><button class="btn s on" data-act="settingsTab" data-tab="company">الشركة والهوية</button><button class="btn s" data-act="settingsTab" data-tab="accounting">المحاسبة والضريبة</button><button class="btn s" data-act="settingsTab" data-tab="inventory">المخزون</button><button class="btn s" data-act="settingsTab" data-tab="documents">الفواتير</button><button class="btn s" data-act="settingsTab" data-tab="users">المستخدمون</button></div><section class="settings-panel on" data-settings-panel="company">' +
       '<p class="muted" style="margin-top:0">اسم الشركة بيتطبق فورًا على الشريط الجانبي وعنوان الصفحة وكل التقارير والفواتير المطبوعة.</p>' +
       '<div class="frow c2"><label class="f">اسم الشركة <span class="req">*</span><input class="in" id="sCo" value="' + esc(s.company) + '"></label><label class="f">النشاط<input class="in" id="sAct" value="' + esc(s.activity) + '"></label></div>' +
       '<div class="frow"><label class="f">كود نشاط المكلف (ETA)<input class="in n" id="sEtaAct" value="' + esc(s.etaActivity) + '"></label><label class="f">تنبيه العملاء المتأخرين بعد (يوم)<input class="in n" id="sAlD" value="' + esc(s.alertDays) + '"></label></div>' +
       '<div class="frow"><label class="f">الرقم الضريبي<input class="in n" id="sTax" value="' + esc(s.taxNo) + '"></label><label class="f">كود الفرع (ETA)<input class="in n" id="sBr" value="' + esc(s.branch) + '"></label><label class="f">الهاتف<input class="in n" id="sPh" value="' + esc(s.phone) + '"></label></div>' +
       '<div class="frow"><label class="f">المحافظة<input class="in" id="sGov" value="' + esc(s.gov) + '"></label><label class="f">المدينة<input class="in" id="sCity" value="' + esc(s.city) + '"></label><label class="f">الشارع<input class="in" id="sSt" value="' + esc(s.street) + '"></label><label class="f">رقم المبنى<input class="in" id="sBl" value="' + esc(s.bldg) + '"></label></div>' +
       '<div class="frow"><div class="f">الشعار<div class="logoPick"><span id="sLogoPv">' + (s.logo ? '<img alt="" src="' + esc(s.logo) + '">' : '<span class="muted sm">مفيش شعار</span>') + '</span><input type="file" accept="image/*" id="sLogo">' + (s.logo ? '<button class="btn s danger" data-act="rmLogo">إزالة</button>' : '') + '</div></div></div>' +
-      '<h2 style="margin:22px 0 10px;padding-top:12px;border-top:1px solid var(--rule)">شكل البرنامج</h2><div class="frow"><label class="f">الهوية اللونية<select class="in" id="sTheme"><option value="green_gold"' + (s.uiTheme === 'green_gold' ? ' selected' : '') + '>أخضر داكن وذهبي</option><option value="blue_modern"' + (s.uiTheme === 'blue_modern' ? ' selected' : '') + '>أزرق حديث</option></select></label><label class="f">كثافة الجداول<select class="in" id="sDensity"><option value="comfortable"' + (s.uiDensity !== 'compact' ? ' selected' : '') + '>مريحة</option><option value="compact"' + (s.uiDensity === 'compact' ? ' selected' : '') + '>مضغوطة</option></select></label></div>' +
-      '<h2 style="margin:22px 0 10px;padding-top:12px;border-top:1px solid var(--rule)">الدفاتر والضريبة</h2>' +
+      '<h2 class="settings-subtitle">شكل البرنامج</h2><div class="frow"><label class="f">الهوية اللونية<select class="in" id="sTheme"><option value="green_gold"' + (s.uiTheme === 'green_gold' ? ' selected' : '') + '>أخضر داكن وذهبي</option><option value="blue_modern"' + (s.uiTheme === 'blue_modern' ? ' selected' : '') + '>أزرق حديث</option></select></label><label class="f">كثافة الجداول<select class="in" id="sDensity"><option value="comfortable"' + (s.uiDensity !== 'compact' ? ' selected' : '') + '>مريحة</option><option value="compact"' + (s.uiDensity === 'compact' ? ' selected' : '') + '>مضغوطة</option></select></label></div>' +
+      '</section><section class="settings-panel" data-settings-panel="accounting"><h2 class="settings-subtitle">الدفاتر والضريبة</h2>' +
       '<div class="frow"><label class="f">تاريخ بداية الدفاتر<input class="in" type="date" id="sStart" value="' + esc(s.startDate) + '"><span class="hint">الأرصدة الافتتاحية بتتسجل بالتاريخ ده.</span></label>' +
       '<label class="f">قفل الفترات حتى تاريخ<input class="in" type="date" id="sLock" value="' + esc(s.closedUntil) + '"><span class="hint">مفيش إضافة أو تعديل أو حذف لحركات في تاريخ أقدم من التاريخ ده. سيبه فاضي لو مش عايز.</span></label>' +
       '<label class="f">ضريبة القيمة المضافة<select class="in" id="sVat"><option value="0"' + (!s.vatOn ? ' selected' : '') + '>غير مفعّلة</option><option value="1"' + (s.vatOn ? ' selected' : '') + '>مفعّلة (الأسعار شاملة الضريبة)</option></select></label>' +
       '<label class="f">النسبة الافتراضية %<input class="in n" id="sVr" value="' + esc(s.vatRate) + '"><span class="hint">تقدر تحدد نسبة مختلفة لكل صنف.</span></label></div>' +
-      '<h2 style="margin:22px 0 10px;padding-top:12px;border-top:1px solid var(--rule)">الحسابات الأساسية</h2><div class="frow">' +
-      ACC_FIELDS.map(f => '<label class="f">' + f[1] + '<select class="in" data-k="' + f[0] + '">' + APP.accOptions(s[f[0]]) + '</select></label>').join('') + '</div>' +
+      '<h2 class="settings-subtitle">الحسابات الأساسية</h2><div class="frow">' +
+      ACC_FIELDS.map(f => '<label class="f">' + f[1] + '<select class="in" data-k="' + f[0] + '">' + APP.accOptions(s[f[0]]) + '</select></label>').join('') + '</div></section>' +
+      '<section class="settings-panel" data-settings-panel="inventory"><h2 class="settings-subtitle">إعدادات المخزون</h2><div class="frow"><label class="f">المخزن الافتراضي<select class="in" id="sDefaultWh">' + APP.S.warehouses.map(w => '<option value="' + esc(w.id) + '"' + (w.id === s.defaultWarehouseId ? ' selected' : '') + '>' + esc(w.name) + '</option>').join('') + '</select></label><label class="f">اختيار المخزن في الفواتير<select class="in" id="sWhSelect"><option value="1"' + (s.warehouseSelection !== false ? ' selected' : '') + '>مفعّل</option><option value="0"' + (s.warehouseSelection === false ? ' selected' : '') + '>معطّل — يستخدم الافتراضي تلقائيًا</option></select></label></div><div class="bn"><span>الأرصدة والحركات القديمة تُرحّل تلقائيًا إلى المخزن الافتراضي.</span><a class="btn s" href="#/warehouse">إدارة المخازن</a><a class="btn s" href="#/stocktransfer">تحويل بين المخازن</a></div></section>' +
+      '<section class="settings-panel" data-settings-panel="documents"><h2 class="settings-subtitle">إعدادات الفواتير والمستندات</h2><div class="bn"><span>ترقيم المستندات وطرق الدفع وتصنيفات المصروفات والإيرادات تُدار من شاشة ربط الحسابات.</span><a class="btn s" href="#/mapping">فتح ربط الحسابات</a></div></section>' +
+      '<section class="settings-panel" data-settings-panel="users"><h2 class="settings-subtitle">المستخدمون والصلاحيات</h2><div class="bn"><span>النسخة المحلية تحفظ البيانات على الجهاز. إدارة المستخدمين والصلاحيات متعددة الحسابات متاحة عند تشغيل نسخة السيرفر.</span><a class="btn s" href="#/team">إدارة الفريق</a></div></section>' +
       '<div id="sErr" class="err"></div><div class="toolbar"><button class="btn primary" data-act="saveSettings">حفظ الإعدادات</button></div></div>';
     return h;
   },
@@ -174,13 +178,18 @@ R_.settings = {
     APP.UI.newLogo = undefined;
   }
 };
+APP.acts.settingsTab = b => {
+  const tab = b.dataset.tab;
+  $$('.settings-tabs .btn').forEach(x => x.classList.toggle('on', x === b));
+  $$('[data-settings-panel]').forEach(x => x.classList.toggle('on', x.dataset.settingsPanel === tab));
+};
 APP.acts.rmLogo = () => { APP.S.settings.logo = ''; APP.applyCompany(); APP.saveSoon(); APP.rerender(); };
 APP.acts.saveSettings = () => {
   const s = APP.S.settings; const co = $('#sCo').value.trim();
   if (!co) { $('#sErr').textContent = 'اسم الشركة مطلوب.'; return; }
   const sd = $('#sStart').value; if (!sd) { $('#sErr').textContent = 'اكتب تاريخ بداية الدفاتر.'; return; }
   const vr = parseFloat($('#sVr').value); if (!(vr >= 0 && vr < 100)) { $('#sErr').textContent = 'نسبة الضريبة لازم تكون بين 0 و 100.'; return; }
-  Object.assign(s, { company: co, activity: $('#sAct').value.trim(), taxNo: $('#sTax').value.trim(), branch: $('#sBr').value.trim() || '0', phone: $('#sPh').value.trim(), gov: $('#sGov').value.trim(), city: $('#sCity').value.trim(), street: $('#sSt').value.trim(), bldg: $('#sBl').value.trim(), startDate: sd, closedUntil: $('#sLock').value, etaActivity: $('#sEtaAct').value.trim(), alertDays: parseInt($('#sAlD').value, 10) || 60, vatOn: $('#sVat').value === '1', vatRate: vr, uiTheme: $('#sTheme').value, uiDensity: $('#sDensity').value });
+  Object.assign(s, { company: co, activity: $('#sAct').value.trim(), taxNo: $('#sTax').value.trim(), branch: $('#sBr').value.trim() || '0', phone: $('#sPh').value.trim(), gov: $('#sGov').value.trim(), city: $('#sCity').value.trim(), street: $('#sSt').value.trim(), bldg: $('#sBl').value.trim(), startDate: sd, closedUntil: $('#sLock').value, etaActivity: $('#sEtaAct').value.trim(), alertDays: parseInt($('#sAlD').value, 10) || 60, vatOn: $('#sVat').value === '1', vatRate: vr, uiTheme: $('#sTheme').value, uiDensity: $('#sDensity').value, defaultWarehouseId: $('#sDefaultWh').value, warehouseSelection: $('#sWhSelect').value === '1' });
   if (APP.UI.newLogo !== undefined) s.logo = APP.UI.newLogo;
   $$('select[data-k]').forEach(x => { s[x.dataset.k] = x.value; });
   APP.applyCompany(); APP.commit('تم حفظ الإعدادات.');
