@@ -96,6 +96,19 @@ APP.tableToCSV = (tb, name) => {
   });
   APP.download('﻿' + rows.join('\r\n'), name + '.csv', 'text/csv;charset=utf-8');
 };
+APP.tableToExcel = (tb, name) => {
+  const rows = [];
+  $$('tr', tb).forEach(tr => {
+    if (tr.closest('tr.dl')) return;
+    const cells = Array.from(tr.children).filter(td => !td.classList.contains('nocsv')).map(td => {
+      const text = td.innerText.replace(/\s+/g, ' ').trim();
+      return '<td>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') + '</td>';
+    });
+    if (cells.length) rows.push('<tr>' + cells.join('') + '</tr>');
+  });
+  const html = '<!doctype html><html><head><meta charset="utf-8"></head><body dir="rtl"><table>' + rows.join('') + '</table></body></html>';
+  APP.download('\uFEFF' + html, name + '.xls', 'application/vnd.ms-excel;charset=utf-8');
+};
 APP.download = (text, name, mime) => {
   const b = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click();

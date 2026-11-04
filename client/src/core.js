@@ -138,7 +138,7 @@ function renderNow(reset) {
   document.body.classList.remove('nav');
   const y = root.scrollY;
   const ae = document.activeElement; if (ae && ae !== document.body && $('#main') && $('#main').contains(ae)) { try { ae.blur(); } catch (e) { } }
-  try { $('#main').innerHTML = r.html(p.arg); if (r.after) r.after(p.arg); } catch (e) { console.error(e); $('#main').innerHTML = '<div class="sheet"><p class="err">حصل خطأ في عرض الشاشة: ' + esc(e.message) + '</p></div>'; }
+  try { $('#main').innerHTML = r.html(p.arg); APP.addReportExports(); if (r.after) r.after(p.arg); } catch (e) { console.error(e); $('#main').innerHTML = '<div class="sheet"><p class="err">حصل خطأ في عرض الشاشة: ' + esc(e.message) + '</p></div>'; }
   root.scrollTo(0, reset ? 0 : y);
   renderBanner();
 }
@@ -184,6 +184,19 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenus(); document.body.classList.remove('nav'); } });
 APP.acts.print = () => root.print();
 APP.acts.csv = (b) => { const t = $('#' + (b.dataset.t || 'rpt')) || $('table.grid'); if (t) APP.tableToCSV(t, (b.dataset.n || 'SIYADA') + '_' + APP.today()); };
+APP.acts.excel = (b) => { const t = $('#' + (b.dataset.t || 'rpt')) || $('table.grid'); if (t) APP.tableToExcel(t, (b.dataset.n || 'SIYADA') + '_' + APP.today()); };
+APP.acts.pdf = () => root.print();
+APP.addReportExports = function () {
+  $$('.toolbar').forEach(bar => {
+    const csv = $('[data-act="csv"]', bar);
+    if (!csv || $('[data-act="excel"]', bar)) return;
+    const name = csv.dataset.n || 'SIYADA';
+    const target = csv.dataset.t || 'rpt';
+    bar.insertAdjacentHTML('beforeend',
+      '<button class="btn" data-act="excel" data-t="' + esc(target) + '" data-n="' + esc(name) + '">Excel</button>' +
+      '<button class="btn" data-act="pdf">PDF</button>');
+  });
+};
 
 /* ---------- global event delegation ---------- */
 document.addEventListener('click', e => {

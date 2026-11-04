@@ -13,6 +13,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - إعادة تنظيم **إعدادات المشروع** في أقسام واضحة: الشركة والهوية، المحاسبة والضريبة، المخزون، الفواتير، والمستخدمون. إعدادات الشكل تُطبّق الآن مباشرة على الواجهة، مع دعم المظهر الأزرق الحديث.
 - فصل شاشة **الأصناف** عن شاشة **المخازن**: الأصناف تعرض البيانات الأساسية والتعريفات، بينما تعرض المخازن الأرصدة والتكلفة والقيمة والتنبيهات، مع إبقاء حركة المخزون كتقرير مستقل.
 - تحسين مظهر عناوين الشاشات والجداول، وإعادة تسمية دليل الحسابات إلى **شجرة الحسابات** مع تمييز مجموعات الحسابات بصريًا.
+- إضافة تصدير موحد لتقارير الجداول بصيغة Excel المتوافقة مع Microsoft Excel، مع زر PDF عبر حوار الطباعة، مع الحفاظ على تصدير CSV.
 - `tests/e2e/run_all.py --retry=N` re-runs a failing suite (CI uses `--retry=1`); a suite that only passes on retry is reported as FLAKY with a GitHub warning, and the end of the output lists every failing check.
 - Dependabot groups GitHub-Actions and Python updates into one pull request each and keeps at most 2 open per ecosystem.
 
