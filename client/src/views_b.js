@@ -63,6 +63,42 @@ function partiesView(type) {
 }
 R_.customers = partiesView(T.cust);
 R_.suppliers = partiesView(T.supp);
+function agingView(type) {
+  const isC = type === T.cust, label = isC ? 'العملاء' : 'الموردين', title = 'أعمار ديون ' + label;
+  return {
+    title,
+    html() {
+      const to = APP.fv('to', APP.today());
+      return '<div class="sheet">' + APP.sheetHead(title, 'تحليل الحركة حسب تاريخها') +
+        '<div class="toolbar">' + APP.dateFilter('', to) + '<button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="' + title + '">تصدير CSV</button></div>' +
+        '<p class="muted sm">التقرير يوضح صافي حركة كل ' + (isC ? 'عميل' : 'مورد') + ' حسب عمرها، ويضع الرصيد الافتتاحي ضمن أكثر من 90 يومًا.</p><div class="scroll" id="results">' + this.results() + '</div></div>';
+    },
+    results() {
+      const to = APP.fv('to', APP.today()), end = new Date(to + 'T23:59:59');
+      const rows = APP.R.parties.filter(p => p.type === type).map(p => {
+        const net = [0, 0, 0, 0];
+        APP.S.transactions.filter(t => t.partyCode === p.code && t.partyType === type && t.date <= to).forEach(t => {
+          const d = new Date(t.date + 'T12:00:00'), age = Math.max(0, Math.floor((end - d) / 86400000));
+          const i = age <= 30 ? 0 : age <= 60 ? 1 : age <= 90 ? 2 : 3;
+          net[i] += isC ? (t.debit || 0) - (t.credit || 0) : (t.credit || 0) - (t.debit || 0);
+        });
+        net[3] += p.opening;
+        return { p, net, total: net.reduce((s, x) => s + x, 0) };
+      }).filter(r => Math.abs(r.total) > 0.004).sort((a, b) => b.total - a.total);
+      return APP.table([
+        { h: isC ? 'العميل' : 'المورد', f: r => '<a href="#/statement/' + encodeURIComponent(r.p.code) + '">' + esc(r.p.name) + '</a>' },
+        { h: '0–30 يوم', n: 1, f: r => nc(r.net[0]), total: r => r.net[0] },
+        { h: '31–60 يوم', n: 1, f: r => nc(r.net[1]), total: r => r.net[1] },
+        { h: '61–90 يوم', n: 1, f: r => nc(r.net[2]), total: r => r.net[2] },
+        { h: 'أكثر من 90', n: 1, f: r => nc(r.net[3]), total: r => r.net[3] },
+        { h: 'الرصيد', n: 1, f: r => nc(r.total), total: r => r.total },
+        { h: '', cls: 'act', f: r => '<a class="btn s" href="#/statement/' + encodeURIComponent(r.p.code) + '">كشف حساب</a>' }
+      ], rows, { id: 'rpt', totals: true, empty: 'لا توجد أرصدة أو حركات حتى التاريخ المحدد.' });
+    }
+  };
+}
+R_.aging = agingView(T.cust);
+R_.supplieraging = agingView(T.supp);
 function partyForm(ref, type) {
   const isC = type === T.cust, isNew = !ref;
   const p = ref ? { code: ref.code, name: ref.name, phone: ref.phone, address: ref.address, open: ref.opening, limit: ref.limit, taxId: ref.taxId || '', rtype: ref.rtype || 'P', pl: ref.priceList || '' } : { code: nextPartyCode(type), name: '', phone: '', address: '', open: 0, limit: 0, taxId: '', rtype: 'P', pl: '' };
@@ -89,11 +125,14 @@ APP.acts.partyEdit = b => { const p = APP.S.parties.find(x => x.code === b.datas
 R_.items = {
   title: 'الأصناف والمخزون',
   html() {
-    const tv = APP.R.items.reduce((s, x) => s + x.value, 0);
+    const inv = APP.R.items, tv = inv.reduce((s, x) => s + x.value, 0);
+    const low = inv.filter(x => x.reorder > 0 && x.onHand <= x.reorder).length;
+    const neg = inv.filter(x => x.onHand < -0.0005).length;
+    const zero = inv.filter(x => Math.abs(x.onHand) < 0.0005).length;
     return '<div class="sheet">' + APP.sheetHead('الأصناف والمخزون', 'القيمة بمتوسط التكلفة') +
       '<div class="toolbar">' + APP.searchBox('اسم أو كود الصنف') + '<label class="f">الحالة<select class="in" data-f="st"><option value="">الكل</option><option value="low">وصل لحد الطلب</option><option value="neg">رصيد سالب</option><option value="nocost">بدون تكلفة</option><option value="zero">رصيد صفر</option></select></label>' +
       '<button class="btn primary" data-act="itemNew">+ صنف جديد</button><button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="الأصناف">تصدير CSV</button></div>' +
-      '<div class="muted sm" style="margin-bottom:8px">إجمالي قيمة المخزون: <b class="n">' + fmt(tv) + '</b></div><div class="scroll" id="results">' + this.results() + '</div></div>';
+      '<div class="kpis"><div class="kpi"><small>عدد الأصناف</small><b class="n">' + inv.length + '</b></div><div class="kpi"><small>قيمة المخزون</small><b>' + fmt(tv) + '</b></div><div class="kpi"><small>وصل لحد الطلب</small><b class="' + (low ? 'neg' : '') + '">' + low + '</b></div><div class="kpi"><small>رصيد سالب</small><b class="' + (neg ? 'neg' : '') + '">' + neg + '</b></div><div class="kpi"><small>رصيد صفر</small><b>' + zero + '</b></div></div><div class="scroll" id="results">' + this.results() + '</div></div>';
   },
   results() {
     const q = APP.fv('q', '').trim(), st = APP.fv('st', '');
@@ -152,6 +191,45 @@ R_.itemcard = {
   }
 };
 
+R_.stockmoves = {
+  title: 'حركة المخزون',
+  html() {
+    const from = APP.fv('from', APP.S.settings.startDate), to = APP.fv('to', APP.today());
+    return '<div class="sheet">' + APP.sheetHead('حركة المخزون', 'الوارد والصادر والرصيد الجاري') +
+      '<div class="toolbar">' + APP.dateFilter(from, to) +
+      '<label class="f grow">الصنف<select class="in" data-f="item"><option value="">كل الأصناف</option>' +
+      APP.S.items.map(x => '<option value="' + esc(x.code) + '"' + (APP.fv('item', '') === x.code ? ' selected' : '') + '>' + esc(x.code + ' - ' + x.name) + '</option>').join('') +
+      '</select></label><button class="btn" data-act="print">طباعة</button><button class="btn" data-act="csv" data-t="rpt" data-n="حركة المخزون">تصدير CSV</button></div>' +
+      '<div class="scroll" id="results">' + this.results() + '</div></div>';
+  },
+  results() {
+    const from = APP.fv('from', APP.S.settings.startDate), to = APP.fv('to', APP.today()), code = APP.fv('item', '');
+    const inTypes = new Set([T.ret, T.buy]), outTypes = new Set([T.sale, T.retBuy]);
+    const rows = [];
+    APP.S.items.filter(x => !code || x.code === code).forEach(item => {
+      let run = item.openQty;
+      APP.S.transactions.filter(t => t.itemCode === item.code && (inTypes.has(t.type) || outTypes.has(t.type)) && t.date < from).forEach(t => { run += inTypes.has(t.type) ? num(t.qty) : -num(t.qty); });
+      APP.S.transactions.filter(t => t.itemCode === item.code && (inTypes.has(t.type) || outTypes.has(t.type)) && t.date >= from && t.date <= to)
+        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq))
+        .forEach(t => {
+          const incoming = inTypes.has(t.type), qty = num(t.qty);
+          run += incoming ? qty : -qty;
+          rows.push({ date: t.date, doc: t.doc, item, type: t.type, party: t.partyName, in: incoming ? qty : 0, out: incoming ? 0 : qty, bal: run });
+        });
+    });
+    return APP.table([
+      { h: 'التاريخ', f: r => '<span class="n">' + r.date + '</span>' },
+      { h: 'المستند', f: r => '<a href="#/doc/' + encodeURIComponent(r.doc) + '">' + esc(r.doc) + '</a>' },
+      { h: 'الصنف', f: r => '<a href="#/itemcard/' + encodeURIComponent(r.item.code) + '">' + esc(r.item.name) + '</a>' },
+      { h: 'النوع', f: r => esc(r.type) },
+      { h: 'الطرف', f: r => esc(r.party || '') },
+      { h: 'وارد', n: 1, f: r => r.in ? '<span class="n">' + APP.fmtq(r.in) + '</span>' : '', total: r => r.in },
+      { h: 'صادر', n: 1, f: r => r.out ? '<span class="n">' + APP.fmtq(r.out) + '</span>' : '', total: r => r.out },
+      { h: 'الرصيد الجاري', n: 1, f: r => '<span class="n' + (r.bal < -0.0005 ? ' neg' : '') + '">' + APP.fmtq(r.bal) + '</span>' }
+    ], rows, { id: 'rpt', totals: true, empty: 'لا توجد حركة مخزون في الفترة المحددة.' });
+  }
+};
+
 /* ---------- chart of accounts ---------- */
 const ACC_TYPES = ['أصول', 'خصوم', 'حقوق ملكية', 'إيرادات', 'مصروفات'];
 R_.coa = {
@@ -177,17 +255,17 @@ R_.coa = {
   }
 };
 function accForm(a) {
-  const isNew = !a; const x = a || { code: '', name: '', type: 'أصول', group: '', fin: false, notes: '' };
+  const isNew = !a; const x = a || { code: '', name: '', type: 'أصول', group: '', fin: false, accountNo: '', notes: '' };
   const used = !isNew && APP.R.journal.some(l => l.acc === x.code);
   const groups = Array.from(new Set(APP.S.coa.map(y => y.group).filter(Boolean)));
   APP.modal('<h3>' + (isNew ? 'حساب جديد' : 'تعديل: ' + esc(x.name)) + '</h3><div class="mbody"><div class="frow c2"><label class="f">الكود <span class="req">*</span><input class="in n" id="afCode" value="' + esc(x.code) + '"' + (!isNew ? ' readonly' : '') + '></label><label class="f">اسم الحساب <span class="req">*</span><input class="in" id="afName" value="' + esc(x.name) + '"></label></div>' +
     '<div class="frow c2"><label class="f">النوع<select class="in" id="afType">' + ACC_TYPES.map(t => '<option' + (t === x.type ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></label><label class="f">المجموعة<input class="in" id="afGrp" list="dlGrp" value="' + esc(x.group) + '"><datalist id="dlGrp">' + groups.map(g => '<option value="' + esc(g) + '">').join('') + '</datalist></label></div>' +
-    '<label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="afFin"' + (x.fin ? ' checked' : '') + '> حساب نقدية / بنك (يظهر في أرصدة الخزينة وفي سندات الدفع)</label><div id="afErr" class="err"></div></div>' +
+    '<div class="frow"><label class="f">رقم الحساب / الهاتف<input class="in n" id="afNo" value="' + esc(x.accountNo || '') + '" placeholder="رقم البنك أو فودافون كاش أو إنستا باي"><span class="hint">يظهر عند اختيار الحساب في الفاتورة والسند.</span></label></div><label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="afFin"' + (x.fin ? ' checked' : '') + '> حساب نقدية / بنك (يظهر في أرصدة الخزينة وفي سندات الدفع)</label><div id="afErr" class="err"></div></div>' +
     '<div class="mfoot"><button class="btn primary" id="afOk">حفظ</button><button class="btn" data-act="mclose">إلغاء</button>' + (!isNew && !used ? '<button class="btn danger" id="afDel" style="margin-right:auto">حذف</button>' : '') + '</div>');
   $('#afOk').onclick = () => {
     const er = $('#afErr'), code = $('#afCode').value.trim(), nm = $('#afName').value.trim(); if (!code || !nm) { er.textContent = 'الكود والاسم مطلوبين.'; return; }
     if (isNew && APP.S.coa.some(y => y.code === code)) { er.textContent = 'الكود ده مستخدم قبل كده.'; return; }
-    const rec = { code, name: nm, type: $('#afType').value, group: $('#afGrp').value.trim(), fin: $('#afFin').checked, notes: x.notes || '' };
+    const rec = { code, name: nm, type: $('#afType').value, group: $('#afGrp').value.trim(), fin: $('#afFin').checked, accountNo: $('#afNo').value.trim(), notes: x.notes || '' };
     if (isNew) APP.S.coa.push(rec); else Object.assign(a, rec);
     APP.mclose(); APP.commit('تم الحفظ.');
   };

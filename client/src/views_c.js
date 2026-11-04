@@ -26,7 +26,7 @@ function nextDoc(pre) {
 }
 function bumpDoc(doc) { const m = /^([A-Za-z]+-)(\d+)$/.exec(doc || ''); if (m) { const n = parseInt(m[2], 10), c = APP.S.meta.docCounters; if (!c[m[1]] || c[m[1]] < n) c[m[1]] = n; } }
 const finAccs = () => APP.S.coa.filter(a => a.fin);
-function methodOpts(sel) { const f = finAccs(); const def = sel || APP.S.settings.accCash; return f.map(a => '<option value="' + esc(a.code) + '"' + (a.code === def ? ' selected' : '') + '>' + esc(a.name) + '</option>').join(''); }
+function methodOpts(sel) { const f = finAccs(); const def = sel || APP.S.settings.accCash; return f.map(a => '<option value="' + esc(a.code) + '"' + (a.code === def ? ' selected' : '') + '>' + esc(a.name + (a.accountNo ? ' — ' + a.accountNo : '')) + '</option>').join(''); }
 function findParty(txt, type) {
   txt = (txt || '').trim(); if (!txt) return null; const code = txt.split(' - ')[0].trim();
   return APP.S.parties.find(p => p.type === type && p.code === code) || APP.S.parties.find(p => p.type === type && p.name === txt) || null;
@@ -68,7 +68,7 @@ function loadDoc(kind, doc) {
 function partyDL(type) { return '<datalist id="dlParty">' + APP.S.parties.filter(p => p.type === type).map(p => '<option value="' + esc(APP.pLabel(p)) + '">').join('') + '</datalist>'; }
 function itemDL() { return '<datalist id="dlItem">' + APP.S.items.map(x => '<option value="' + esc(APP.iLabel(x)) + '">').join('') + '</datalist>'; }
 function lineRow(K, l, i) {
-  return '<tr class="ln"><td class="ix">' + (i + 1) + '</td><td><input class="li" list="dlItem" data-on="line" value="' + esc(l.item || '') + '" placeholder="كود أو اسم الصنف" autocomplete="off"><div class="hint lh"></div></td><td style="width:90px"><input class="n lc" data-on="line" inputmode="numeric" value="' + esc(l.pcs || '') + '" placeholder="العدد" title="عدد القطع / الوحدات (اختياري)"></td><td style="width:110px"><input class="n lq" data-on="line" inputmode="decimal" value="' + esc(l.qty || '') + '" placeholder="الكمية"></td><td style="width:120px"><input class="n lp" data-on="line" inputmode="decimal" value="' + esc(l.price || '') + '" placeholder="السعر"></td><td style="width:130px" class="tot lt"></td><td style="width:36px"><button class="btn s ghost" data-act="lnDel" title="حذف السطر" tabindex="-1">✕</button></td></tr>';
+  return '<tr class="ln"><td class="ix">' + (i + 1) + '</td><td><input class="li" list="dlItem" data-on="line" value="' + esc(l.item || '') + '" placeholder="كود أو اسم الصنف" autocomplete="off"><div class="hint lh"></div></td><td style="width:110px"><input class="n lq" data-on="line" inputmode="decimal" value="' + esc(l.qty || '') + '" placeholder="الكمية"></td><td style="width:90px"><input class="n lc" data-on="line" inputmode="numeric" value="' + esc(l.pcs || '') + '" placeholder="العدد" title="العدد = الكمية ÷ وزن الوحدة"></td><td style="width:120px"><input class="n lp" data-on="line" inputmode="decimal" value="' + esc(l.price || '') + '" placeholder="السعر لكل وحدة كمية"></td><td style="width:130px" class="tot lt"></td><td style="width:36px"><button class="btn s ghost" data-act="lnDel" title="حذف السطر" tabindex="-1">✕</button></td></tr>';
 }
 function invoiceHtml(kind, arg) {
   const K = KINDS[kind]; const pre = arg ? loadDoc(kind, arg) : null; if (arg && !pre) return '<div class="sheet"><p>المستند ' + esc(arg) + ' مش موجود.</p></div>';
@@ -77,12 +77,12 @@ function invoiceHtml(kind, arg) {
   let h = '<div class="sheet doc" id="frm" data-kind="' + kind + '" data-edit="' + esc(p.edit || '') + '">' + APP.sheetHead(K.title + (p.edit ? ' (تعديل)' : ''), p.doc) + partyDL(K.pty) + itemDL() +
     '<div class="frow"><label class="f">التاريخ <span class="req">*</span><input class="in" type="date" id="fD" value="' + esc(p.date) + '"></label><label class="f">رقم المستند<input class="in" id="fNo" value="' + esc(p.doc) + '"></label>' +
     '<label class="f" style="grid-column:span 2">' + K.partyLbl + ' <span class="req">*</span><input class="in" id="fP" list="dlParty" data-on="party" value="' + esc(p.party || '') + '" placeholder="اكتب كود أو اسم ' + K.partyLbl + '" autocomplete="off"><span class="hint" id="fPh"></span></label></div>' +
-    '<table class="lines"><thead><tr><th></th><th>الصنف</th><th>العدد</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th><th></th></tr></thead><tbody id="lnBody">' + p.lines.map((l, i) => lineRow(K, l, i)).join('') + '</tbody></table>' +
+    '<table class="lines"><thead><tr><th></th><th>الصنف</th><th>الكمية</th><th>العدد</th><th>السعر/الكمية</th><th>الإجمالي</th><th></th></tr></thead><tbody id="lnBody">' + p.lines.map((l, i) => lineRow(K, l, i)).join('') + '</tbody></table>' +
     '<button class="btn s" data-act="lnAdd">+ سطر</button><div class="sumbox">' +
     '<div class="r"><span>إجمالي العدد</span><b class="n" id="sPcs">0</b></div><div class="r"><span>إجمالي الأصناف</span><b class="n" id="sGross">0.00</b></div>' +
     (K.disc ? '<div class="r"><span>خصم</span><input class="n" id="fDisc" data-on="line" inputmode="decimal" value="' + esc(p.disc || '') + '"></div>' : '') +
     '<div class="r big"><span>الصافي</span><b class="n" id="sNet">0.00</b></div>' +
-    (K.pay ? '<div class="r"><span>' + K.pay.label + '</span><input class="n" id="fPaid" data-on="line" inputmode="decimal" value="' + esc(p.paid || '') + '"></div><div class="r" id="rMeth"><span>طريقة الدفع</span><select class="in" id="fAcc" style="width:160px">' + methodOpts(p.payAcc) + '</select></div><div class="r"><span>يضاف على حساب الطرف</span><b class="n" id="sRest">0.00</b></div>' : '') +
+    (K.pay ? '<div class="r"><span>الرصيد السابق</span><b class="n" id="sPrev">0.00</b></div><div class="r"><span>' + K.pay.label + '</span><input class="n" id="fPaid" data-on="line" inputmode="decimal" value="' + esc(p.paid || '') + '"></div><div class="r" id="rMeth"><span>طريقة الدفع</span><select class="in" id="fAcc" style="width:160px">' + methodOpts(p.payAcc) + '</select></div><div class="r"><span>الرصيد بعد الفاتورة</span><b class="n" id="sRest">0.00</b></div>' : '') +
     '</div><div class="frow c2" style="margin-top:12px"><label class="f">ملاحظات<input class="in" id="fDesc" value="' + esc(p.desc || '') + '"></label></div><div id="fErr" class="err"></div>' +
     '<div class="toolbar"><button class="btn primary" data-act="saveDoc">حفظ</button><button class="btn" data-act="saveDocNew">حفظ وإضافة جديد</button><a class="btn" href="#/' + (p.edit ? 'doc/' + encodeURIComponent(p.edit) : 'dashboard') + '">إلغاء</a></div></div>';
   return h;
@@ -90,22 +90,22 @@ function invoiceHtml(kind, arg) {
 function recalcInv() {
   const frm = $('#frm'); if (!frm) return; const K = KINDS[frm.dataset.kind]; let gross = 0, pcs = 0;
   $$('#lnBody tr').forEach(tr => {
-    pcs += parseFloat($('.lc', tr).value) || 0; const q = parseFloat($('.lq', tr).value) || 0, p = parseFloat($('.lp', tr).value) || 0, t = r2(q * p); gross += t; $('.lt', tr).textContent = t ? fmt(t) : '';
-    const x = findItem($('.li', tr).value), lh = $('.lh', tr);
-    if (x) { const r = APP.iBy.get(x.code); const bal = r ? r.onHand : 0; const out = K.lt === T.sale || K.lt === T.retBuy; lh.innerHTML = 'الرصيد: <span class="n' + (out && q > bal ? ' neg' : '') + '">' + APP.fmtq(bal) + '</span> ' + esc(x.unit || '') + (out && q > bal ? ' — الكمية أكبر من الرصيد' : '') + (num(x.weight) > 0 ? ' — وزن الوحدة <span class="n">' + APP.fmtq(x.weight) + '</span>' : ''); } else lh.textContent = '';
+    const q = parseFloat($('.lq', tr).value) || 0, p = parseFloat($('.lp', tr).value) || 0, t = r2(q * p); gross += t; $('.lt', tr).textContent = t ? fmt(t) : '';
+    const x = findItem($('.li', tr).value), lh = $('.lh', tr), pc = $('.lc', tr);
+    if (x) { const r = APP.iBy.get(x.code), w = num(x.weight); const bal = r ? r.onHand : 0; const out = K.lt === T.sale || K.lt === T.retBuy; if (w > 0) { pc.readOnly = true; pc.title = 'العدد = الكمية ÷ وزن الوحدة'; pc.value = q > 0 ? r3(q / w) : ''; } else { pc.readOnly = false; } lh.innerHTML = 'الرصيد: <span class="n' + (out && q > bal ? ' neg' : '') + '">' + APP.fmtq(bal) + '</span> ' + esc(x.unit || '') + (out && q > bal ? ' — الكمية أكبر من الرصيد' : '') + (w > 0 ? ' — وزن الوحدة <span class="n">' + APP.fmtq(w) + '</span>' : ''); } else { pc.readOnly = false; lh.textContent = ''; }
+    pcs += parseFloat(pc.value) || 0;
   });
   const disc = K.disc ? (parseFloat($('#fDisc').value) || 0) : 0, net = r2(gross - disc);
   $('#sPcs').textContent = APP.fmtq(pcs); $('#sGross').textContent = fmt(gross); $('#sNet').textContent = fmt(net);
-  if (K.pay) { const paid = parseFloat($('#fPaid').value) || 0; $('#sRest').textContent = fmt(net - paid); $('#rMeth').style.opacity = paid > 0 ? 1 : .45; }
+  if (K.pay) { const p = findParty($('#fP').value, K.pty), r = p && APP.pBy.get(p.code); let prev = r ? r.balance : 0; const edit = frm.dataset.edit; if (edit && p) prev -= APP.S.transactions.filter(t => t.doc === edit && t.partyCode === p.code).reduce((s, t) => s + t.debit - t.credit, 0); const paid = parseFloat($('#fPaid').value) || 0; $('#sPrev').textContent = fmt(prev); $('#sRest').textContent = fmt(K.lt === T.sale ? prev + net - paid : prev - net + paid); $('#rMeth').style.opacity = paid > 0 ? 1 : .45; }
 }
-/* العدد = الكمية ÷ وزن الصنف (لو الصنف له وزن). كتابة الكمية بتحسب العدد دايمًا، وكتابة العدد بتحسب الكمية لو الكمية فاضية أو محسوبة تلقائيًا */
+/* العدد = الكمية ÷ وزن الصنف (لو الصنف له وزن). */
 const r3 = v => Math.round(v * 1000) / 1000;
 function syncPcs(tr, t) {
   const x = findItem($('.li', tr).value), w = x ? num(x.weight) : 0; if (!(w > 0)) return;
   const q = $('.lq', tr), c = $('.lc', tr);
   if (t === q) { delete q.dataset.auto; const v = parseFloat(q.value); if (v > 0) { c.value = r3(v / w); c.dataset.auto = '1'; } else if (!q.value.trim()) { c.value = ''; delete c.dataset.auto; } }
-  else if (t === c) { delete c.dataset.auto; const v = parseFloat(c.value); if (v > 0 && (!q.value.trim() || q.dataset.auto)) { q.value = r3(v * w); q.dataset.auto = '1'; } else if (!c.value.trim() && q.dataset.auto) { q.value = ''; delete q.dataset.auto; } }
-  else if (t.classList.contains('li')) { const v = parseFloat(q.value); if (v > 0 && (!c.value.trim() || c.dataset.auto)) { c.value = r3(v / w); c.dataset.auto = '1'; } }
+  else if (t.classList.contains('li')) { const v = parseFloat(q.value); if (v > 0) { c.value = r3(v / w); c.dataset.auto = '1'; } }
 }
 APP.ons.line = (t) => {
   const tr0 = t.closest('tr'); if (tr0 && (t.classList.contains('lq') || t.classList.contains('lc') || t.classList.contains('li'))) syncPcs(tr0, t);
@@ -280,22 +280,26 @@ R_.doc = {
     const title = K ? K.title : (d.type || 'مستند');
     const lines = K && K.k === 'inv' ? txs.filter(t => t.type === K.lt) : [];
     const sumTp = tp => txs.filter(t => t.type === tp).reduce((s, t) => s + t.debit + t.credit, 0);
-    let h = '<div class="sheet doc">' + APP.sheetHead(title, arg) +
+    let h = '<div class="sheet doc ' + (lines.length ? 'invoice-document' : 'voucher-document') + '">' + APP.sheetHead(title, arg) +
       '<div class="toolbar noprint"><button class="btn primary" data-act="print">طباعة</button>' + (kind ? '<a class="btn" href="#/' + kind + '/' + encodeURIComponent(arg) + '">تعديل</a>' : '<a class="btn" href="#/txs">تعديل من سجل الحركات</a>') + '<button class="btn danger" data-act="docDel" data-d="' + esc(arg) + '">حذف</button><a class="btn" href="#/docs">كل المستندات</a></div>' +
-      '<div class="frow"><div><span class="muted sm">التاريخ</span><div class="n"><b>' + t0.date + '</b></div></div><div><span class="muted sm">' + (t0.source === T.treas ? 'التصنيف' : t0.source === T.sales ? 'العميل' : 'المورد') + '</span><div><b>' + esc(t0.partyName) + '</b> <span class="muted sm n">' + esc(t0.partyCode) + '</span></div></div><div><span class="muted sm">رقم القيد</span><div class="n">' + Array.from(new Set(info.map(i => i.jno))).filter(Boolean).join('، ') + '</div></div></div>';
+      '<div class="frow doc-meta"><div><span class="muted sm">التاريخ</span><div class="n"><b>' + t0.date + '</b></div></div><div><span class="muted sm">' + (t0.source === T.treas ? 'التصنيف' : t0.source === T.sales ? 'العميل' : 'المورد') + '</span><div><b>' + esc(t0.partyName) + '</b> <span class="muted sm n">' + esc(t0.partyCode) + '</span></div></div><div><span class="muted sm">رقم القيد</span><div class="n">' + Array.from(new Set(info.map(i => i.jno))).filter(Boolean).join('، ') + '</div></div></div>';
     if (lines.length) {
-      h += APP.table([{ h: '#', f: (t) => '<span class="n">' + (lines.indexOf(t) + 1) + '</span>' }, { h: 'الصنف', f: t => esc(t.itemName || '—') }, { h: 'الوحدة', f: t => esc(((APP.iBy.get(t.itemCode) || {}).unit) || '') }].concat(lines.some(t => t.pieces) ? [{ h: 'العدد', n: 1, f: t => t.pieces ? '<span class="n">' + APP.fmtq(t.pieces) + '</span>' : '', total: t => t.pieces, tf: v => '<span class="n">' + APP.fmtq(v) + '</span>' }] : []).concat([{ h: 'الكمية', n: 1, f: t => '<span class="n">' + APP.fmtq(t.qty) + '</span>' }, { h: 'السعر', n: 1, f: t => nc(t.price) }, { h: 'الإجمالي', n: 1, f: t => nc(t.debit + t.credit), total: t => t.debit + t.credit }]), lines, { totals: true, totalLabel: 'إجمالي الأصناف' });
+      h += APP.table([{ h: '#', f: (t) => '<span class="n">' + (lines.indexOf(t) + 1) + '</span>' }, { h: 'الصنف', f: t => esc(t.itemName || '—') }, { h: 'الوحدة', f: t => esc(((APP.iBy.get(t.itemCode) || {}).unit) || '') }, { h: 'الكمية', n: 1, f: t => '<span class="n">' + APP.fmtq(t.qty) + '</span>' }].concat(lines.some(t => t.pieces) ? [{ h: 'العدد', n: 1, f: t => t.pieces ? '<span class="n">' + APP.fmtq(t.pieces) + '</span>' : '', total: t => t.pieces, tf: v => '<span class="n">' + APP.fmtq(v) + '</span>' }] : []).concat([{ h: 'السعر', n: 1, f: t => nc(t.price) }, { h: 'الإجمالي', n: 1, f: t => nc(t.debit + t.credit), total: t => t.debit + t.credit }]), lines, { totals: true, totalLabel: 'إجمالي الأصناف' });
       const gross = lines.reduce((s, t) => s + t.debit + t.credit, 0), disc = K.disc ? sumTp(K.disc.tp) : 0, paid = K.pay ? sumTp(K.pay.tp) : 0, net = r2(gross - disc);
+      const payTx = K.pay ? txs.find(t => t.type === K.pay.tp) : null, payAcc = payTx ? APP.coaBy.get(payTx.acc) : null;
       h += '<div class="sumbox">' + (disc ? '<div class="r"><span>خصم</span><b class="n">' + fmt(disc) + '</b></div>' : '') + '<div class="r big"><span>الصافي</span><b class="n">' + fmt(net) + '</b></div>' + (K.pay ? '<div class="r"><span>' + K.pay.label + '</span><b class="n">' + fmt(paid) + '</b></div><div class="r"><span>المتبقي على الحساب</span><b class="n">' + fmt(net - paid) + '</b></div>' : '') + '</div>';
       h += '<div class="words">' + esc(APP.tafqeet(net)) + '</div>';
-      const pr = APP.pBy.get(t0.partyCode); if (pr) h += '<p class="muted sm">رصيد ' + (t0.source === T.sales ? 'العميل' : 'المورد') + ' الحالي: <span class="n">' + fmt(pr.balance) + '</span></p>';
+      const pr = APP.pBy.get(t0.partyCode); if (pr) h += '<p class="muted sm">الرصيد السابق: <span class="n">' + fmt(pr.balance - (t0.source === T.sales ? net - paid : -net + paid)) + '</span> — الرصيد الحالي: <span class="n">' + fmt(pr.balance) + '</span></p>';
+      if (payAcc) h += '<div class="payment-details"><b>بيانات الدفع</b><span>الحساب: ' + esc(payAcc.name) + '</span>' + (payAcc.accountNo ? '<span>رقم الحساب / الهاتف: <span class="n">' + esc(payAcc.accountNo) + '</span></span>' : '') + '</div>';
     } else {
       const amt = txs.reduce((s, t) => s + t.debit + t.credit, 0);
       h += '<div class="sumbox"><div class="r big"><span>المبلغ</span><b class="n">' + fmt(amt) + '</b></div></div><div class="words">' + esc(APP.tafqeet(amt)) + '</div>';
-      h += '<p>طريقة الدفع: <b>' + esc(info[0].meth || APP.accName(t0.acc) || 'الخزينة النقدية') + '</b>' + (t0.desc ? ' — ' + esc(t0.desc) : '') + '</p>';
+      const voucherAcc = APP.coaBy.get(t0.acc);
+      h += '<p class="document-note">طريقة الدفع: <b>' + esc(info[0].meth || APP.accName(t0.acc) || 'الخزينة النقدية') + '</b>' + (t0.desc ? ' — ' + esc(t0.desc) : '') + '</p>';
+      if (voucherAcc) h += '<div class="payment-details"><b>بيانات الدفع</b><span>الحساب: ' + esc(voucherAcc.name) + '</span>' + (voucherAcc.accountNo ? '<span>رقم الحساب / الهاتف: <span class="n">' + esc(voucherAcc.accountNo) + '</span></span>' : '') + '</div>';
       if (txs.length > 1) h += APP.table([{ h: 'النوع', f: t => esc(t.type) }, { h: 'المبلغ', n: 1, f: t => nc(t.debit + t.credit) }, { h: 'البيان', f: t => esc(t.desc) }], txs);
     }
-    h += '<div class="sig"><div>المحاسب</div><div>' + (t0.source === T.treas ? 'المستلم' : t0.source === T.sales ? 'العميل' : 'المورد') + '</div><div>اعتماد</div></div></div>';
+    h += '<div class="sig print-signatures"><div><span>المحاسب</span><i></i></div><div><span>' + (t0.source === T.treas ? 'المستلم' : t0.source === T.sales ? 'العميل' : 'المورد') + '</span><i></i></div><div><span>اعتماد</span><i></i></div></div></div>';
     return h;
   }
 };

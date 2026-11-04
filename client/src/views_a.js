@@ -64,15 +64,19 @@ R_.dashboard = {
     const debtors = R.parties.filter(p => p.type === T.cust && p.balance > 0.5).sort((a, b) => b.balance - a.balance).slice(0, 6);
     const recent = R.docs.filter(d => d.date).slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 8);
     const bad = R.checks.filter(c => c.stat !== 'ok').length;
+    const today = APP.today(), todaySales = S.transactions.filter(x => x.date === today && x.source === T.sales && x.type === T.sale).reduce((n, x) => n + x.amount, 0);
+    const todayCollections = S.transactions.filter(x => x.date === today && x.source === T.sales && x.type === T.coll).reduce((n, x) => n + x.amount, 0);
     let h = '';
     if (empty) h += '<div class="panel" style="margin-bottom:20px"><h2>ابدأ من هنا</h2><p class="muted" style="margin:0 0 12px">دفاترك فاضية. الترتيب المقترح: سجّل العملاء والموردين، بعدها الأصناف، وبعدها اعمل أول فاتورة.</p><div class="toolbar" style="margin:0"><a class="btn" href="#/customers">إضافة العملاء</a><a class="btn" href="#/suppliers">إضافة الموردين</a><a class="btn" href="#/items">إضافة الأصناف</a><a class="btn primary" href="#/sale">أول فاتورة بيع</a><a class="btn" href="#/import">استيراد بيانات موجودة</a></div></div>';
+    h += '<div class="quick-actions"><a class="quick primary" href="#/sale"><b>فاتورة بيع</b><span>تسجيل مبيعات جديدة</span></a><a class="quick" href="#/purchase"><b>فاتورة شراء</b><span>إضافة مشتريات للمخزون</span></a><a class="quick" href="#/receipt"><b>تحصيل من عميل</b><span>تسجيل سند قبض</span></a><a class="quick" href="#/payment"><b>سداد مورد</b><span>تسجيل سند دفع للمورد</span></a><a class="quick" href="#/salret"><b>مرتجع مبيعات</b><span>إرجاع أصناف من العميل</span></a><a class="quick" href="#/purret"><b>مرتجع مشتريات</b><span>إرجاع أصناف للمورد</span></a><a class="quick" href="#/expense"><b>سند مصروف</b><span>تسجيل مصروف جديد</span></a><a class="quick" href="#/items"><b>المخزون</b><span>إدارة الأصناف والتنبيهات</span></a><a class="quick" href="#/stockmoves"><b>حركة المخزون</b><span>الوارد والصادر والرصيد الجاري</span></a></div>';
     h += '<div class="eq"><div class="t"><small>الأصول</small><b>' + fmt(t.assets) + '</b></div><span class="op">=</span><div class="t"><small>الخصوم</small><b>' + fmt(t.liab) + '</b></div><span class="op">+</span><div class="t"><small>حقوق الملكية</small><b>' + fmt(t.eq) + '</b></div><span class="op">+</span><div class="t"><small>أرباح الفترة (غير مرحّلة)</small><b class="' + (t.profit < 0 ? 'neg' : '') + '">' + fmt(t.profit) + '</b></div></div>';
     h += '<div class="kpis">' +
       '<div class="kpi"><small>النقدية والبنوك</small><b>' + fmt(t.fin) + '</b><a href="#/treasury">التفاصيل</a></div>' +
       '<div class="kpi"><small>مديونية العملاء</small><b>' + fmt(t.ar) + '</b><a href="#/customers">العملاء</a></div>' +
       '<div class="kpi"><small>مستحق للموردين</small><b>' + fmt(t.ap) + '</b><a href="#/suppliers">الموردون</a></div>' +
       '<div class="kpi"><small>المخزون بالتكلفة</small><b class="' + (t.inv < 0 ? 'neg' : '') + '">' + fmt(t.inv) + '</b><a href="#/items">الأصناف</a></div>' +
-      '<div class="kpi"><small>صافي مبيعات الشهر</small><b>' + fmt(mNow) + '</b><span class="muted sm">الشهر اللي قبله: <span class="n">' + fmt(mPrev) + '</span></span></div></div>';
+      '<div class="kpi"><small>صافي مبيعات الشهر</small><b>' + fmt(mNow) + '</b><span class="muted sm">الشهر اللي قبله: <span class="n">' + fmt(mPrev) + '</span></span></div>' +
+      '<div class="kpi accent"><small>مبيعات اليوم</small><b>' + fmt(todaySales) + '</b><span class="muted sm">تحصيل اليوم: <span class="n">' + fmt(todayCollections) + '</span></span></div></div>';
     h += '<div class="cols"><div class="panel"><h2>صافي المبيعات — آخر 12 شهر</h2>' + chartSVG(months, vals) + '</div>' +
       '<div class="panel"><h2>فحوصات التناسق' + (bad ? '<small>' + bad + ' ملاحظة</small>' : '<small>كله سليم</small>') + '</h2>' + ckList(R.checks) + '<div style="margin-top:8px"><a href="#/checks">كل التفاصيل</a></div></div></div>';
     h += alertsPanel();
@@ -82,6 +86,46 @@ R_.dashboard = {
       APP.table([{ h: 'التاريخ', f: d => '<span class="n">' + d.date + '</span>' }, { h: 'المستند', f: d => '<a href="#/doc/' + encodeURIComponent(d.doc) + '">' + esc(d.doc) + '</a> <span class="muted sm">' + esc(d.type) + '</span>' }, { h: 'الطرف', f: d => esc(d.pn) }, { h: 'القيمة', n: 1, f: d => nc(d.net) }], recent, { empty: 'لسه مفيش مستندات.' }) + '</div></div>';
     return h;
   }
+};
+
+R_.analytics = {
+    title: 'تحليل البيانات',
+    html() {
+      const from = APP.fv('from', APP.S.settings.startDate || ''), to = APP.fv('to', APP.today());
+      const tx = APP.S.transactions.filter(t => (!from || t.date >= from) && (!to || t.date <= to));
+      const sales = tx.filter(t => t.source === T.sales && t.type === T.sale).reduce((n, t) => n + t.amount, 0);
+      const returns = tx.filter(t => t.source === T.sales && t.type === T.ret).reduce((n, t) => n + t.amount, 0);
+      const receipts = tx.filter(t => t.source === T.sales && t.type === T.coll).reduce((n, t) => n + t.amount, 0);
+      const purchases = tx.filter(t => t.source === T.purch && t.type === T.buy).reduce((n, t) => n + t.amount, 0);
+      const expenses = tx.filter(t => t.source === T.treas && t.type === T.exp).reduce((n, t) => n + t.amount, 0);
+      const grossProfit = tx.filter(t => t.source === T.sales && t.type === T.sale).reduce((n, t) => n + ((APP.R.txInfo.get(t.id) || {}).net || t.amount) - ((APP.R.txInfo.get(t.id) || {}).cost || 0), 0);
+      const rows = new Map();
+      const customers = new Map();
+      tx.filter(t => t.source === T.sales && (t.type === T.sale || t.type === T.ret)).forEach(t => {
+        const k = t.itemCode || t.itemName || 'بدون صنف', r = rows.get(k) || { name: t.itemName || 'بدون صنف', qty: 0, value: 0 };
+        r.qty += t.type === T.sale ? t.qty : -t.qty; r.value += t.type === T.sale ? t.amount : -t.amount; rows.set(k, r);
+        if (t.partyCode || t.partyName) {
+          const pk = t.partyCode || t.partyName, p = customers.get(pk) || { name: t.partyName || pk, value: 0 };
+          p.value += t.type === T.sale ? t.amount : -t.amount; customers.set(pk, p);
+        }
+      });
+      const top = Array.from(rows.values()).sort((a, b) => b.value - a.value).slice(0, 20);
+      const topCustomers = Array.from(customers.values()).sort((a, b) => b.value - a.value).slice(0, 10);
+      return '<div class="sheet analytics"><div class="sh"><div class="t"><div class="co">' + esc(APP.company()) + '</div><div class="ti">تحليل البيانات</div></div></div>' +
+        '<div class="toolbar">' + APP.dateFilter(from, to) + '<button class="btn primary" data-act="print">طباعة</button><button class="btn" data-act="analyticsCsv">تصدير CSV</button></div>' +
+        '<div class="kpis"><div class="kpi"><small>صافي المبيعات</small><b>' + fmt(sales - returns) + '</b></div><div class="kpi"><small>المشتريات</small><b>' + fmt(purchases) + '</b></div><div class="kpi"><small>الربح التقديري</small><b>' + fmt(grossProfit - returns) + '</b></div><div class="kpi"><small>التحصيلات</small><b>' + fmt(receipts) + '</b></div><div class="kpi"><small>المصروفات</small><b>' + fmt(expenses) + '</b></div></div>' +
+        '<div class="cols"><div class="panel"><h2>أعلى الأصناف مبيعًا</h2><div class="scroll">' + APP.table([{ h: 'الصنف', f: r => esc(r.name) }, { h: 'الكمية', n: 1, f: r => APP.fmtq(r.qty) }, { h: 'صافي المبيعات', n: 1, f: r => nc(r.value), total: r => r.value }], top, { empty: 'لا توجد مبيعات في الفترة المحددة.' }) + '</div></div>' +
+        '<div class="panel"><h2>أعلى العملاء شراءً</h2><div class="scroll">' + APP.table([{ h: 'العميل', f: r => esc(r.name) }, { h: 'صافي المبيعات', n: 1, f: r => nc(r.value), total: r => r.value }], topCustomers, { empty: 'لا توجد مبيعات في الفترة المحددة.' }) + '</div></div></div></div>';
+    }
+};
+APP.acts.analyticsCsv = () => {
+  const from = APP.fv('from', APP.S.settings.startDate || ''), to = APP.fv('to', APP.today()), rows = new Map();
+  APP.S.transactions.filter(t => t.date >= from && t.date <= to && t.source === T.sales && (t.type === T.sale || t.type === T.ret)).forEach(t => {
+    const key = t.itemCode || t.itemName || 'بدون صنف', row = rows.get(key) || { item_code: t.itemCode || '', item_name: t.itemName || 'بدون صنف', quantity: 0, net_sales: 0 };
+    row.quantity += t.type === T.sale ? t.qty : -t.qty; row.net_sales += t.type === T.sale ? t.amount : -t.amount; rows.set(key, row);
+  });
+  const d = new Date().toISOString().slice(0, 10);
+  APP.download(csvOf(Array.from(rows.values()), ['item_code', 'item_name', 'quantity', 'net_sales']), 'analytics_' + d + '.csv', 'text/csv;charset=utf-8');
 };
 
 /* ---------- checks ---------- */
@@ -112,6 +156,7 @@ R_.settings = {
       '<div class="frow"><label class="f">الرقم الضريبي<input class="in n" id="sTax" value="' + esc(s.taxNo) + '"></label><label class="f">كود الفرع (ETA)<input class="in n" id="sBr" value="' + esc(s.branch) + '"></label><label class="f">الهاتف<input class="in n" id="sPh" value="' + esc(s.phone) + '"></label></div>' +
       '<div class="frow"><label class="f">المحافظة<input class="in" id="sGov" value="' + esc(s.gov) + '"></label><label class="f">المدينة<input class="in" id="sCity" value="' + esc(s.city) + '"></label><label class="f">الشارع<input class="in" id="sSt" value="' + esc(s.street) + '"></label><label class="f">رقم المبنى<input class="in" id="sBl" value="' + esc(s.bldg) + '"></label></div>' +
       '<div class="frow"><div class="f">الشعار<div class="logoPick"><span id="sLogoPv">' + (s.logo ? '<img alt="" src="' + esc(s.logo) + '">' : '<span class="muted sm">مفيش شعار</span>') + '</span><input type="file" accept="image/*" id="sLogo">' + (s.logo ? '<button class="btn s danger" data-act="rmLogo">إزالة</button>' : '') + '</div></div></div>' +
+      '<h2 style="margin:22px 0 10px;padding-top:12px;border-top:1px solid var(--rule)">شكل البرنامج</h2><div class="frow"><label class="f">الهوية اللونية<select class="in" id="sTheme"><option value="green_gold"' + (s.uiTheme === 'green_gold' ? ' selected' : '') + '>أخضر داكن وذهبي</option><option value="blue_modern"' + (s.uiTheme === 'blue_modern' ? ' selected' : '') + '>أزرق حديث</option></select></label><label class="f">كثافة الجداول<select class="in" id="sDensity"><option value="comfortable"' + (s.uiDensity !== 'compact' ? ' selected' : '') + '>مريحة</option><option value="compact"' + (s.uiDensity === 'compact' ? ' selected' : '') + '>مضغوطة</option></select></label></div>' +
       '<h2 style="margin:22px 0 10px;padding-top:12px;border-top:1px solid var(--rule)">الدفاتر والضريبة</h2>' +
       '<div class="frow"><label class="f">تاريخ بداية الدفاتر<input class="in" type="date" id="sStart" value="' + esc(s.startDate) + '"><span class="hint">الأرصدة الافتتاحية بتتسجل بالتاريخ ده.</span></label>' +
       '<label class="f">قفل الفترات حتى تاريخ<input class="in" type="date" id="sLock" value="' + esc(s.closedUntil) + '"><span class="hint">مفيش إضافة أو تعديل أو حذف لحركات في تاريخ أقدم من التاريخ ده. سيبه فاضي لو مش عايز.</span></label>' +
@@ -133,7 +178,7 @@ APP.acts.saveSettings = () => {
   if (!co) { $('#sErr').textContent = 'اسم الشركة مطلوب.'; return; }
   const sd = $('#sStart').value; if (!sd) { $('#sErr').textContent = 'اكتب تاريخ بداية الدفاتر.'; return; }
   const vr = parseFloat($('#sVr').value); if (!(vr >= 0 && vr < 100)) { $('#sErr').textContent = 'نسبة الضريبة لازم تكون بين 0 و 100.'; return; }
-  Object.assign(s, { company: co, activity: $('#sAct').value.trim(), taxNo: $('#sTax').value.trim(), branch: $('#sBr').value.trim() || '0', phone: $('#sPh').value.trim(), gov: $('#sGov').value.trim(), city: $('#sCity').value.trim(), street: $('#sSt').value.trim(), bldg: $('#sBl').value.trim(), startDate: sd, closedUntil: $('#sLock').value, etaActivity: $('#sEtaAct').value.trim(), alertDays: parseInt($('#sAlD').value, 10) || 60, vatOn: $('#sVat').value === '1', vatRate: vr });
+  Object.assign(s, { company: co, activity: $('#sAct').value.trim(), taxNo: $('#sTax').value.trim(), branch: $('#sBr').value.trim() || '0', phone: $('#sPh').value.trim(), gov: $('#sGov').value.trim(), city: $('#sCity').value.trim(), street: $('#sSt').value.trim(), bldg: $('#sBl').value.trim(), startDate: sd, closedUntil: $('#sLock').value, etaActivity: $('#sEtaAct').value.trim(), alertDays: parseInt($('#sAlD').value, 10) || 60, vatOn: $('#sVat').value === '1', vatRate: vr, uiTheme: $('#sTheme').value, uiDensity: $('#sDensity').value });
   if (APP.UI.newLogo !== undefined) s.logo = APP.UI.newLogo;
   $$('select[data-k]').forEach(x => { s[x.dataset.k] = x.value; });
   APP.applyCompany(); APP.commit('تم حفظ الإعدادات.');
