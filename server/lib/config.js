@@ -27,6 +27,8 @@ const cfg = {
   baseUrl: (env.BASE_URL || '').replace(/\/+$/, ''),
   trustProxy: bool(env.TRUST_PROXY, false),
   adminEmail: (env.ADMIN_EMAIL || '').trim().toLowerCase(),
+  // الدومينات المسموح تتبني منها روابط الإيميل لو BASE_URL مش متظبط (مفصولة بفواصل)
+  allowedHosts: (env.ALLOWED_HOSTS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
   allowRegistration: bool(env.ALLOW_REGISTRATION, true),
   requireVerify: bool(env.REQUIRE_VERIFY, false),
   sessionDays: int(env.SESSION_DAYS, 30),

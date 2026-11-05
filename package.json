@@ -23,8 +23,7 @@
   },
   "devDependencies": {
     "electron": "^39.0.0",
-    "electron-builder": "^26.0.12",
-    "electron-log": "^5.4.0"
+    "electron-builder": "^26.0.12"
   },
   "build": {
     "appId": "com.siyada.desktop",
@@ -56,6 +55,7 @@
     }
   },
   "dependencies": {
+    "electron-log": "^5.4.0",
     "electron-updater": "^6.8.11"
   }
 }

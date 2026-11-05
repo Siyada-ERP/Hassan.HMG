@@ -8,7 +8,19 @@ const M = require('./mail');
 const { HttpError, bad } = D;
 
 const ROLE_AR = { owner: 'مالك', accountant: 'محاسب', viewer: 'عرض فقط' };
-const baseUrl = req => cfg.baseUrl || ((A.isHttps(req) ? 'https://' : 'http://') + (req.headers.host || ('localhost:' + cfg.port)));
+// روابط الإيميل: BASE_URL لو متظبط. لو لأ، ما نثقش في هيدر Host إلا لو في ALLOWED_HOSTS أو localhost (عشان ما يتزوّرش ويدخل في الرابط)
+const baseUrl = req => {
+  if (cfg.baseUrl) return cfg.baseUrl;
+  const host = String(req.headers.host || '').toLowerCase();
+  const known = cfg.allowedHosts.includes(host) || /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+  return (A.isHttps(req) ? 'https://' : 'http://') + (host && known ? host : 'localhost:' + cfg.port);
+};
+// الأدمن بيتمنح بعد ما الإيميل يثبت ملكيته (رابط التفعيل أو الاسترجاع)، مش لمجرد التسجيل
+function promoteAdmin(uid) {
+  const u = P('u_adm_get', 'SELECT id,email FROM users WHERE id=?').get(uid); if (!u) return;
+  const first = P('u_adm_min', 'SELECT MIN(id) AS m FROM users').get().m === u.id;
+  if ((cfg.adminEmail && cfg.adminEmail === u.email) || (!cfg.adminEmail && first)) P('u_adm_set', 'UPDATE users SET is_admin=1 WHERE id=?').run(uid);
+}
 const str = (v, max, name) => { if (typeof v !== 'string') throw bad('بيانات ناقصة: ' + (name || '')); v = v.trim(); if (v.length > max) throw bad('النص طويل جدًا: ' + (name || '')); return v; };
 const need = (c, status, msg) => { if (!c) throw new HttpError(status || 403, msg || 'غير مسموح.'); };
 
@@ -78,14 +90,17 @@ route('POST', '/api/register', async ctx => {
   const out = tx(() => {
     if (P('u_exists2', 'SELECT 1 FROM users WHERE email=?').get(email)) throw new HttpError(409, 'الإيميل ده مسجل قبل كده.');
     const first = P('u_count', 'SELECT COUNT(*) AS n FROM users').get().n === 0;
-    const admin = (cfg.adminEmail && cfg.adminEmail === email) || (!cfg.adminEmail && first) ? 1 : 0;
+    // مرشح للأدمن بس — الصلاحية بتتمنح لما يفعّل الإيميل (promoteAdmin)
+    const adminCandidate = !inv && ((cfg.adminEmail && cfg.adminEmail === email) || (!cfg.adminEmail && first));
     const verified = inv ? 1 : (cfg.requireVerify ? 0 : 1);
-    const r = P('u_ins', 'INSERT INTO users(email,pass,verified,is_admin,created_at,pw_changed_at) VALUES(?,?,?,?,?,?)').run(email, hash, verified, admin, now(), now());
+    const r = P('u_ins', 'INSERT INTO users(email,pass,verified,is_admin,created_at,pw_changed_at) VALUES(?,?,?,?,?,?)').run(email, hash, verified, 0, now(), now());
     const uid = Number(r.lastInsertRowid); let cid = 0;
     if (inv) { P('mem_ins2', 'INSERT OR IGNORE INTO members(company_id,user_id,role,created_at) VALUES(?,?,?,?)').run(inv.company_id, uid, inv.role, now()); P('inv_acc', 'UPDATE invites SET accepted_at=? WHERE id=?').run(now(), inv.id); cid = inv.company_id; D.log(cid, { userId: uid, email }, 'join', 'انضم للشركة بصلاحية ' + ROLE_AR[inv.role]); }
     else cid = createCompany(uid, company);
-    return { uid, cid, verified };
+    return { uid, cid, verified, adminCandidate };
   });
+  // لو مرشح للأدمن ومتفعّل تلقائيًا: نبعت رابط تفعيل عشان يثبت الإيميل
+  if (out.adminCandidate && out.verified) mailToken(ctx.req, { id: out.uid, email }, 'verify').catch(() => { });
   if (!out.verified) { const u = { id: out.uid, email }; mailToken(ctx.req, u, 'verify').catch(() => { }); return { needVerify: true, email }; }
   startSession(ctx, out.uid);
   return Object.assign(meObj(sessionObj(out.uid)), { companyId: out.cid });
@@ -95,12 +110,14 @@ route('POST', '/api/login', async ctx => {
   const email = A.normEmail(ctx.body.email), pw = typeof ctx.body.password === 'string' ? ctx.body.password : '';
   const k1 = 'login:' + ctx.ip + '|' + email, k2 = 'loginE:' + email;
   need(A.peek(k1, 8) && A.peek(k2, 30), 429, 'محاولات دخول كتيرة. استنى شوية وجرّب تاني.');
+  // نعدّ المحاولة قبل التحقق (sync مع الفحص فوق)، عشان الطلبات المتوازية ما تتخطّاش الحد
+  A.hit(k1, 8, 15 * 60e3); A.hit(k2, 30, 3600e3);
   const u = P('u_by_email', 'SELECT * FROM users WHERE email=?').get(email);
   const ok = u ? await A.verifyPassword(pw, u.pass) : (await A.dummyVerify(pw), false);
-  if (!ok) { A.hit(k1, 8, 15 * 60e3); A.hit(k2, 30, 3600e3); throw new HttpError(401, 'الإيميل أو كلمة المرور غلط.'); }
+  if (!ok) throw new HttpError(401, 'الإيميل أو كلمة المرور غلط.');
   need(!u.disabled, 403, 'الحساب ده موقوف. تواصل مع إدارة الخدمة.');
   if (cfg.requireVerify && !u.verified) throw new HttpError(403, 'لازم تفعّل الإيميل الأول — راجع رسالة التفعيل.', { needVerify: true });
-  A.clearKey(k1); startSession(ctx, u.id);
+  A.clearKey(k1); A.clearKey(k2); startSession(ctx, u.id);
   return meObj(sessionObj(u.id));
 });
 route('POST', '/api/logout', ctx => { if (ctx.session) P('sess_del2', 'DELETE FROM sessions WHERE id=?').run(ctx.session.id); ctx.setCookie = A.cookieHeader(ctx.req, '', 0); return { ok: true }; });
@@ -117,12 +134,12 @@ route('POST', '/api/reset', async ctx => {
   const pp = A.passwordProblem(ctx.body.password); if (pp) throw bad(pp);
   const uid = A.useToken(String(ctx.body.token || ''), 'reset'); if (!uid) throw bad('الرابط منتهي أو غير صالح. اطلب رابط جديد.');
   const hash = await A.hashPassword(ctx.body.password);
-  P('u_pw', 'UPDATE users SET pass=?, pw_changed_at=?, verified=1 WHERE id=?').run(hash, now(), uid); A.killSessions(uid);
+  P('u_pw', 'UPDATE users SET pass=?, pw_changed_at=?, verified=1 WHERE id=?').run(hash, now(), uid); promoteAdmin(uid); A.killSessions(uid);
   return { ok: true };
 });
 route('POST', '/api/verify', ctx => {
   const uid = A.useToken(String(ctx.body.token || ''), 'verify'); if (!uid) throw bad('رابط التفعيل منتهي أو غير صالح.');
-  P('u_ver', 'UPDATE users SET verified=1 WHERE id=?').run(uid); return { ok: true };
+  P('u_ver', 'UPDATE users SET verified=1 WHERE id=?').run(uid); promoteAdmin(uid); return { ok: true };
 });
 route('POST', '/api/resend', async ctx => {
   const s = needLogin(ctx); need(A.hit('resend:' + s.userId, 3, 3600e3), 429, 'استنى شوية قبل إعادة الإرسال.');

@@ -37,7 +37,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   r = await X.post('/api/login', { email: 'a@b.com', password: 'x' }, { Origin: 'http://evil.example' }); ok('csrf origin', r.s === 403);
   r = await X.get('/api/me'); ok('me anon 401', r.s === 401);
   // --- تسجيل
-  r = await A.post('/api/register', { email: 'admin@example.com', password: 'Passw0rd!A', company: 'شركة ألف' }); ok('register A', r.s === 200 && r.j.user.admin === true && r.j.companies.length === 1 && r.j.companies[0].role === 'owner', r.j);
+  r = await A.post('/api/register', { email: 'admin@example.com', password: 'Passw0rd!A', company: 'شركة ألف' }); ok('register A', r.s === 200 && r.j.user.admin === false && r.j.companies.length === 1 && r.j.companies[0].role === 'owner', r.j);
+  // الأدمن بيتمنح بعد إثبات الإيميل: نفّذ رابط التفعيل من الـ outbox
+  { const ob = fs.readdirSync(path.join(tmp, 'outbox')); const vf = ob.find(f => f.includes('admin@example.com') && fs.readFileSync(path.join(tmp, 'outbox', f), 'utf8').includes('?verify=')); const vt = /\?verify=([\w-]+)/.exec(fs.readFileSync(path.join(tmp, 'outbox', vf), 'utf8'))[1]; r = await A.post('/api/verify', { token: vt }); ok('verify admin email', r.s === 200); r = await A.get('/api/me'); ok('admin granted after email proof', r.j.user.admin === true, r.j); }
   const cidA = r.j.companies[0].id;
   r = await X.post('/api/register', { email: 'admin@example.com', password: 'Passw0rd!A', company: 'x1' }); ok('dup email 409', r.s === 409);
   r = await X.post('/api/register', { email: 'bad', password: 'Passw0rd!A', company: 'x1' }); ok('bad email 400', r.s === 400);
